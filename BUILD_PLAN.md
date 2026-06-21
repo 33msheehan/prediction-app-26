@@ -285,11 +285,12 @@ Cap `trials` (e.g. ≤ 100k) and node count (e.g. ≤ 200) for v1; benchmark a r
 
 1. **One branch + PR per ticket.** PR title = ticket id + name.
 2. **A ticket is "done" only when:** all its acceptance criteria pass, its listed tests are written and green, `lint` + `typecheck` + full test suite pass in CI, and no scope creep beyond the ticket.
-3. **Follow the dependency order.** Phase 2 (the engine) is pure and independent of the DB/auth — it can be built first or in parallel and is the highest-leverage thing to land early.
-4. **Vertical slice target:** Phases 0 → 1 → 2 → 3 produce a usable "create a forecast and see a probability" app. Ship that, then 4 → 5 → 6.
-5. **Keep a checklist** at the top of the repo (`PROGRESS.md`) ticking off ticket ids.
-6. **Never commit secrets.** `ANTHROPIC_API_KEY`, DB URLs → env only.
-7. When a ticket says "test X," write the *specific* test, not a placeholder.
+3. **A phase is "done" only after independent review.** Once every ticket in a phase is done, mark the phase ready for review. An agent who implemented no ticket in that phase must review the merged implementation against the phase scope, acceptance criteria, tests, integration boundaries, and tracker state. That reviewer records evidence and either passes the phase or requests changes; an implementing agent cannot verify their own phase.
+4. **Follow the dependency order.** Phase 2 (the engine) is pure and independent of the DB/auth — it can be built first or in parallel and is the highest-leverage thing to land early.
+5. **Vertical slice target:** Phases 0 → 1 → 2 → 3 produce a usable "create a forecast and see a probability" app. Ship that, then 4 → 5 → 6.
+6. **Keep a checklist** at the top of the repo (`PROGRESS.md`) ticking off ticket ids and phase reviews.
+7. **Never commit secrets.** `ANTHROPIC_API_KEY`, DB URLs → env only.
+8. When a ticket says "test X," write the *specific* test, not a placeholder.
 
 ---
 

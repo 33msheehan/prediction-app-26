@@ -23,6 +23,28 @@ remains the formal dashboard.
 | T2.7 | Done | current session | codex/t2.7-runner | Added `runForecast()` in `lib/engine/runner.ts` with deterministic Monte Carlo evaluation, CI/SE aggregation, and optional numeric node summaries. |
 | T2.8 | Done | current session | codex/t2.8-guardrails | Added runner trial/node guardrails and a representative default-run benchmark in `lib/engine/runner.ts`. |
 
+## Phase review gates
+
+Ticket completion makes a phase eligible for review; it does not complete the
+phase. The reviewer must be an agent who implemented no ticket in that phase.
+
+| Phase | Implementation | Independent review | Reviewer | Evidence / findings |
+| --- | --- | --- | --- | --- |
+| Phase 0 | In progress | Not ready | — | T0.4 still needs human verification; T0.5 is not started. |
+| Phase 1 | Not started | Not ready | — | Phase tickets are not complete. |
+| Phase 2 | Ready for review | Pending | Unassigned independent agent | Review T2.1–T2.8 against `BUILD_PLAN.md`; inspect merged code and rerun lint, typecheck, full tests, and engine benchmarks. The implementing agent must not pass this gate. |
+| Phase 3 | Not started | Not ready | — | — |
+| Phase 4 | Not started | Not ready | — | — |
+| Phase 5 | Not started | Not ready | — | — |
+| Phase 6 | Not started | Not ready | — | — |
+| Phase 7 | Not started | Not ready | — | — |
+| Phase 8 | Not started | Not ready | — | — |
+
+Review status vocabulary: `Not ready`, `Pending`, `In review`, `Changes
+requested`, or `Passed`. A `Passed` entry must include reviewer identity, review
+date, commands/tests run, and a concise result. Findings remain in this table or
+the coordination log until re-review passes.
+
 ## Coordination rules
 
 - Prefer separate git worktrees/branches per active ticket.
