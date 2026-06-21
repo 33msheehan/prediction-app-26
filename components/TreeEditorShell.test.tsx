@@ -1,8 +1,14 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Tree } from '@/lib/engine/tree';
 import { TreeEditorShell } from './TreeEditorShell';
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    refresh: vi.fn(),
+  }),
+}));
 
 function editorTree(): Tree {
   return {
@@ -37,7 +43,7 @@ function editorTree(): Tree {
 describe('TreeEditorShell', () => {
   it('renames a node inline', async () => {
     const user = userEvent.setup();
-    render(<TreeEditorShell initialTree={editorTree()} />);
+    render(<TreeEditorShell forecastId="forecast-1" initialTree={editorTree()} />);
 
     const input = screen.getByLabelText('Label for child-a');
     await user.clear(input);
@@ -48,7 +54,7 @@ describe('TreeEditorShell', () => {
 
   it('adds a child to a composite node', async () => {
     const user = userEvent.setup();
-    render(<TreeEditorShell initialTree={editorTree()} />);
+    render(<TreeEditorShell forecastId="forecast-1" initialTree={editorTree()} />);
 
     await user.selectOptions(screen.getByLabelText('Child type for root'), 'or');
     await user.click(screen.getByRole('button', { name: 'Add child' }));
@@ -58,7 +64,7 @@ describe('TreeEditorShell', () => {
 
   it('deletes a non-root node', async () => {
     const user = userEvent.setup();
-    render(<TreeEditorShell initialTree={editorTree()} />);
+    render(<TreeEditorShell forecastId="forecast-1" initialTree={editorTree()} />);
 
     await user.click(screen.getAllByRole('button', { name: 'Delete' })[1]);
 
@@ -67,7 +73,7 @@ describe('TreeEditorShell', () => {
 
   it('reorders sibling nodes', async () => {
     const user = userEvent.setup();
-    render(<TreeEditorShell initialTree={editorTree()} />);
+    render(<TreeEditorShell forecastId="forecast-1" initialTree={editorTree()} />);
 
     await user.click(screen.getAllByRole('button', { name: 'Move down' })[1]);
 
@@ -79,7 +85,7 @@ describe('TreeEditorShell', () => {
 
   it('blocks invalid child output type changes with a clear message', async () => {
     const user = userEvent.setup();
-    render(<TreeEditorShell initialTree={editorTree()} />);
+    render(<TreeEditorShell forecastId="forecast-1" initialTree={editorTree()} />);
 
     await user.selectOptions(screen.getByLabelText('Type for child-a'), 'normal');
 

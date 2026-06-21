@@ -54,7 +54,7 @@ export default async function ForecastPage({ params }: { params: Promise<{ id: s
           </div>
         </section>
 
-        <TreeEditorShell initialTree={treeResult.data} />
+        <TreeEditorShell forecastId={forecast.id} initialTree={treeResult.data} />
       </div>
     </main>
   );

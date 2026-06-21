@@ -44,6 +44,10 @@ blank for false.
 | T3.1   | x       |                       |                | Combined with T3.2 on the current branch. Added a server-side create flow for binary forecasts with cadence metadata, an immediate `source:'initial'` version, dashboard revalidation, and redirect into `/forecasts/[id]`. Form/validation/unit/build coverage is green locally; the new DB integration tests are written but not marked green because sourcing `.env.local` in this shell hit a live DB insert failure before the test body could run. |
 | T3.2   | x       |                       |                | Combined with T3.1 on the current branch. Dashboard now lists only the signed-in user's forecasts, shows latest headline probability, links into the forecast, and computes a due-for-review badge from cadence plus latest-version time. Cadence unit tests and RTL list coverage are green locally; DB-backed list isolation tests are written alongside T3.1's integration coverage but currently blocked by the same live DB insert failure in this shell. |
 | T3.3   | x       | x                     |                | Added a client-side tree editor shell on `/forecasts/[id]`: nested outline, rename/delete/reorder controls, node-type conversion (including root staying boolean), add-child type picker, expand/collapse, and live inline `validateTree()` feedback. Component tests cover rename/add/delete/move plus invalid type-change rejection; lint, typecheck, and `next build` are green locally. |
+| T3.4   | x       | x                     |                | Added inline leaf editors for every v1 leaf type, including elicitation-driven parameter fitting and a distribution preview card with implied quantiles/yes-rate. Invalid inputs stay in the UI as recoverable errors instead of crashing the editor. Local component tests, lint, typecheck, full unit suite, and production build are green. |
+| T3.5   | x       | x                     |                | Added composite-node configuration in the editor: `k_of_n` enforces `1 <= k <= n`, `threshold` edits `op` + `value`, and composite cards always surface their output type / accepted child type. Covered by the editor component suite plus local lint/typecheck/test/build. |
+| T3.6   | x       | x                     |                | Added a debounced live headline panel in the editor using client-side `runForecast()`, with headline probability, SE, 95% CI, and invalid-tree guidance when recomputation is disabled. Covered by the green editor/client test pass and local lint/typecheck/build. |
+| T3.7   | x       |                       |                | Added version persistence from the editor via `POST /api/forecasts/[id]/versions`, which appends `source:'edit'` versions through the repository layer and refreshes the page after save. The repository already has DB-backed append/reload/invalid-tree integration coverage; this worktree has no `.env.local`, so the T3 DB assertions will be exercised in PR CI's ephemeral Neon job rather than marked green locally. |
 
 Tickets not listed above (T1.2 onward, all of Phases 3–8) are not started —
 omit a row until work begins.
@@ -76,22 +80,20 @@ above.
 
 ### Where we are
 
-Phases 0, 1, and 2 are complete. Phase 1 is now marked passed after the user
-confirmed two independent LLM reviews on top of the earlier T1.1 human
-verification and DB-backed test coverage. Phase 3 is underway: T3.1/T3.2 are
-implemented as the first forecast CRUD slice, and T3.3 now layers the tree
-editor shell on top: local outline editing, type conversion, add/delete/move,
-expand/collapse, and inline tree validation. Local unit/RTL/typecheck/build
-checks are green for the editor work.
+Phases 0, 1, and 2 are complete. Phase 3's implementation is now in place on
+the current branch: T3.1-T3.3 cover create/list/editor-shell, and T3.4-T3.7
+add leaf/composite editing, a debounced live headline, and save-to-version
+persistence from the editor. Local lint, typecheck, full unit suite, and
+production build are green; the remaining DB-backed T3 assertions are already
+written and will run in PR CI's ephemeral Neon job because this checkout has no
+`.env.local`.
 
 ### Next steps
 
-1. Clear the live DB harness issue that currently prevents the new T3
-   repository integration tests from running in this shell, then mark T3.1/T3.2
-   test coverage fully green.
-2. Continue Phase 3 with T3.4/T3.5, wiring leaf/composite-specific editors
-   into the new shell so structure edits can also configure distributions and
-   combinator settings.
+1. Push the T3 completion branch and let PR CI run the DB-backed repository
+   tests for T3.1/T3.2/T3.7 against its ephemeral Neon database.
+2. If PR CI is green, mark the remaining T3 test flags complete and move Phase 3
+   to `pending` for independent review.
 
 ## Coordination rules
 
