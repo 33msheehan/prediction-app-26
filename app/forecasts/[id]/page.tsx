@@ -1,6 +1,8 @@
 import { notFound, redirect } from 'next/navigation';
+import { TreeSchema } from '@/lib/engine/tree';
 import { getCurrentUser } from '@/lib/auth/session';
 import { getForecastWithCurrentVersion } from '@/lib/db/repository';
+import { TreeEditorShell } from '@/components/TreeEditorShell';
 
 export default async function ForecastPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -12,6 +14,11 @@ export default async function ForecastPage({ params }: { params: Promise<{ id: s
   const forecast = await getForecastWithCurrentVersion(user.id, id);
 
   if (!forecast) {
+    notFound();
+  }
+
+  const treeResult = TreeSchema.safeParse(forecast.currentTree);
+  if (!treeResult.success) {
     notFound();
   }
 
@@ -47,13 +54,7 @@ export default async function ForecastPage({ params }: { params: Promise<{ id: s
           </div>
         </section>
 
-        <section className="rounded border border-dashed border-black/15 p-6">
-          <h2 className="text-lg font-semibold">Editor shell</h2>
-          <p className="mt-2 text-sm text-black/65">
-            The tree outline and live probability headline land in the next Phase 3 tickets. This
-            page now loads the current forecast and its latest saved version.
-          </p>
-        </section>
+        <TreeEditorShell initialTree={treeResult.data} />
       </div>
     </main>
   );
