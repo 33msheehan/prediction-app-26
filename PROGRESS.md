@@ -11,7 +11,8 @@ remains the formal dashboard.
 | T0.1 | Done | prior session | main | Tooling scaffold is in place; tracker marks started/tests complete. |
 | T0.2 | Done | prior session + user | main | Vercel Postgres provisioned, env vars pulled, /api/health verified live (200, db: connected) and integration test passes for real. |
 | T0.3 | Done | claude session | claude/t0.3-orm-migrations (merged) | Drizzle wired; empty initial migration generated via `--custom`. User supplied a Neon API token; created a real ephemeral branch (`ci-test-t0.3`), ran `db:migrate` against it twice to confirm idempotency, then deleted the branch. Human verification complete. |
-| T0.4 | Not started | unassigned | — | CI pipeline. Good parallel task for a second agent. |
+| T0.4 | Built, pending human push/branch-protection | claude session | claude/t0.4-ci-pipeline (worktree: ../prediction-app-t0.4) | `.github/workflows/ci.yml` runs lint/typecheck/test/build on PRs + push to main, plus a scheduled/manual e2e job. Verified locally that each step actually fails on a broken change and passes clean. Needs the user to push to GitHub, enable Actions, and add branch protection. |
+| T0.5 | Not started | unassigned | — | App shell & routing. A stray edit in T2.5/T2.6 work had incorrectly marked this (and T0.4) done; corrected. |
 | T2.1 | Done | current session | codex/t2-engine | Added deterministic seedable RNG helpers in `lib/engine/rng.ts` with tests. |
 | T2.2 | Done | current session | codex/t2-engine | Added distribution samplers in `lib/engine/distributions.ts` with validation and statistical tests. |
 | T2.3 | Done | current session | codex/t2.3-fitters | Added elicitation-to-param fitters in `lib/engine/fitters.ts` with empirical round-trip and invalid-input tests. |
@@ -67,3 +68,16 @@ remains the formal dashboard.
   create and tear down a real ephemeral branch, confirmed `db:migrate` is
   idempotent against it. Token stored only in gitignored `.env.local`
   (`NEON_API_KEY`); never written to a tracked file or printed to a terminal.
+- 2026-06-21: Found and fixed a stray edit (from the T2.5 commit, `c1c6478`)
+  that had incorrectly marked T0.5 done with no actual code behind it.
+  Reverted to `not started` after confirming via `app/`, `components/`, and
+  `e2e/` that no routing/nav work exists.
+- 2026-06-21: Started T0.4 in worktree `../prediction-app-t0.4` (branch
+  `claude/t0.4-ci-pipeline`). Wrote `.github/workflows/ci.yml`. While
+  verifying, found the *same* stray-edit bug had also falsely marked T0.4
+  done from the same commit — confirmed no `.github/` directory existed
+  anywhere before this. Verified the real pipeline: deliberately broke
+  typecheck (exit 2) and a test (exit 1), confirmed both fail and revert
+  cleanly, then confirmed lint/typecheck/test/build all pass clean.
+  `humanVerified` stays false — needs the user to push to GitHub, enable
+  Actions, and add a branch protection rule.
