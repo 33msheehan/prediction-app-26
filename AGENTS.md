@@ -40,11 +40,14 @@ the change minimal.
   single source of all ticket/phase **status** (`progress` flags, `humanVerified`,
   phase review gates, the summary).
 - `tracker.html` and the README `TRACKER` block are **generated artifacts** —
-  never hand-edit or commit them on a feature branch. Reflect status changes by
-  editing `BUILD_PLAN.md` (scope) and `PROGRESS.md` (status); run
-  `npm run tracker:generate` locally only if you want to preview the dashboard.
-  On `main`, CI regenerates and commits `tracker.html` + the README block
-  automatically, so they always match the markdown without merge conflicts.
+  never hand-edit them. Reflect status changes by editing `BUILD_PLAN.md`
+  (scope) and `PROGRESS.md` (status); run `npm run tracker:generate` locally
+  only if you want to preview the dashboard. CI's `sync-tracker` job
+  regenerates them on every PR push and commits the result onto the PR branch
+  itself if they drifted, so they're already correct by the time a PR merges
+  into `main` — direct commits to `main` aren't an option here since it's
+  branch-protected against pushes that don't go through a PR, including from
+  the Actions bot.
 - Do not mark a ticket complete unless its acceptance criteria and listed tests
   are satisfied.
 - If human verification is required, leave `humanVerified: false` and state what

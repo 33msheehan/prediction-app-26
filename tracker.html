@@ -371,10 +371,10 @@
 const LAST_UPDATED = "2026-06-21";
 
 const SUMMARY = {
-  "where": "Phases 0, 1, and 2 are complete. Phase 3's implementation is now in place on the current branch: T3.1-T3.3 cover create/list/editor-shell, and T3.4-T3.7 add leaf/composite editing, a debounced live headline, and save-to-version persistence from the editor. Local lint, typecheck, full unit suite, and production build are green; the remaining DB-backed T3 assertions are already written and will run in PR CI's ephemeral Neon job because this checkout has no <code>.env.local</code>.",
+  "where": "Phases 0, 1, and 2 are complete. Phase 3 is now implemented end to end on PR #10: T3.1-T3.3 cover create/list/editor-shell, and T3.4-T3.7 add leaf and composite editing, a debounced live headline, and save-to-version persistence from the editor. Local lint, typecheck, the full unit suite, and production build are green, and the PR review also confirmed the DB-backed T3 tests pass with a real <code>POSTGRES_URL</code>; Phase 3 is ready for independent re-review.",
   "next": [
-    "Push the T3 completion branch and let PR CI run the DB-backed repository tests for T3.1/T3.2/T3.7 against its ephemeral Neon database.",
-    "If PR CI is green, mark the remaining T3 test flags complete and move Phase 3 to <code>pending</code> for independent review."
+    "Have an independent agent re-review PR #10 now that the missing T3.4-T3.7 tests are in place.",
+    "Perform the human UX verification still called out on T3.3, T3.4, and T3.6 before treating Phase 3 as fully closed."
   ]
 };
 
@@ -897,7 +897,7 @@ const phases = [
   {
     "name": "Phase 3 — Forecast CRUD & tree editor",
     "phaseReview": {
-      "status": "not_ready",
+      "status": "pending",
       "reviewer": null,
       "reviewedAt": null
     },
@@ -927,7 +927,7 @@ const phases = [
         },
         "progress": {
           "started": true,
-          "testsWritten": false,
+          "testsWritten": true,
           "humanVerified": false
         }
       },
@@ -956,7 +956,7 @@ const phases = [
         },
         "progress": {
           "started": true,
-          "testsWritten": false,
+          "testsWritten": true,
           "humanVerified": false
         }
       },
@@ -1119,7 +1119,7 @@ const phases = [
         },
         "progress": {
           "started": true,
-          "testsWritten": false,
+          "testsWritten": true,
           "humanVerified": false
         }
       }
