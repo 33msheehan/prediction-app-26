@@ -41,6 +41,8 @@ blank for false.
 | T2.6   | x       | x                     |                | Added `validateTree()` in `lib/engine/validate.ts` with path-based, human-readable errors for root type, arity, child typing, and param ranges.                                                                                                                                                                                                                                                          |
 | T2.7   | x       | x                     |                | Added `runForecast()` in `lib/engine/runner.ts` with deterministic Monte Carlo evaluation, CI/SE aggregation, and optional numeric node summaries.                                                                                                                                                                                                                                                       |
 | T2.8   | x       | x                     |                | Added runner trial/node guardrails and a representative default-run benchmark in `lib/engine/runner.ts`.                                                                                                                                                                                                                                                                                                 |
+| T3.1   | x       |                       |                | Combined with T3.2 on the current branch. Added a server-side create flow for binary forecasts with cadence metadata, an immediate `source:'initial'` version, dashboard revalidation, and redirect into `/forecasts/[id]`. Form/validation/unit/build coverage is green locally; the new DB integration tests are written but not marked green because sourcing `.env.local` in this shell hit a live DB insert failure before the test body could run. |
+| T3.2   | x       |                       |                | Combined with T3.1 on the current branch. Dashboard now lists only the signed-in user's forecasts, shows latest headline probability, links into the forecast, and computes a due-for-review badge from cadence plus latest-version time. Cadence unit tests and RTL list coverage are green locally; DB-backed list isolation tests are written alongside T3.1's integration coverage but currently blocked by the same live DB insert failure in this shell. |
 
 Tickets not listed above (T1.2 onward, all of Phases 3–8) are not started —
 omit a row until work begins.
@@ -56,7 +58,7 @@ Review status vocabulary: `not_ready`, `pending`, `in_review`,
 | Phase   | Review status | Reviewer | Reviewed at | Notes                                                                                                                                                                                                                                                                              |
 | ------- | ------------- | -------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Phase 0 | passed        | Codex    | 2026-06-21  | Codex's independent review passed T0.1, T0.2, T0.4, T0.5 and returned T0.3 to changes requested solely because the required ephemeral-Neon migration CI step was absent. That step has since been implemented and fixed (see T0.3 above); remote CI is green. Phase 0 is complete. |
-| Phase 1 | pending       |          |             | Ready for re-review. Two PR review comments (P1: `/api/health`/`/api/auth` exemption matched unrelated routes like `/api/healthcheck` by prefix; P2: route-guard tests bypassed the real `proxy.ts`/Auth.js protection layer) were found and fixed — see the coordination log. All four tickets (T1.1–T1.4) done, tests green against the real Neon DB, T1.1 human-verified. Needs an independent reviewer who implemented no T1.x ticket — left PR #5 open, unmerged, for Codex.                                                                                                                                                                    |
+| Phase 1 | passed        | Claude + Codex | 2026-06-21  | User confirmed Phase 1 received two independent LLM reviews and should now be treated as fully complete. The earlier Phase 1 PR-review findings (route-guard public-route prefix matching and proxy-layer test coverage gaps) were fixed before this status change; T1.1 remains human-verified and T1.2–T1.4 remained green against the real Neon DB at review time.                                                                                                                                                 |
 | Phase 2 | passed        | Claude   | 2026-06-21  | Independently reviewed T2.1–T2.8 (implemented by Codex) against `BUILD_PLAN.md` §4: read all 8 `lib/engine` source files, verified all 9 leaf distributions, all 7 combinators, all 5 `validateTree()` rules, and the runner's analytic anchors. Found and fixed two issues on `codex/phase-2-independent-review`: (1) the triangular/PERT schema allowed `min === max` while the elicitation fitter rejected it — schema now requires `min < max`; (2) `validateTree()` had no duplicate-node-id check, which the data model relies on for per-node history reconstruction — added `validateUniqueIds()`. Added 3 regression tests. Reran lint, typecheck, full suite (78 passed, 2 skipped), and `next build` — all clean. |
 | Phase 3 | not_ready     |          |             |                                                                                                                                                                                                                                                                                    |
 | Phase 4 | not_ready     |          |             |                                                                                                                                                                                                                                                                                    |
@@ -73,29 +75,20 @@ above.
 
 ### Where we are
 
-Phase 0 (scaffold & infrastructure) is complete: all five tickets passed
-independent review, including T0.3 after fixing its CI remediation (the test
-step now uses a pooled Neon connection string, as `@vercel/postgres`
-requires). Phase 2 (probabilistic core) passed independent review by Claude:
-a schema/fitter inconsistency on degenerate triangular/PERT params and a
-missing duplicate-node-id check in `validateTree()` were found and fixed,
-with 3 new regression tests (78 tests total, lint/typecheck/build all clean).
-All of Phase 1 (T1.1–T1.4: auth, schema/migrations, data-access layer, seed
-& test harness) is implemented and tested against the real provisioned
-Neon DB: GitHub OAuth via Auth.js v5 (JWT sessions, no DB adapter — we
-upsert into our own `users` table instead of adding Auth.js's account/
-session tables), the `users`/`forecasts`/`forecast_versions` schema with
-the circular current-version FK, a `userId`-scoped repository layer
-reusing the Phase 2 engine's tree schema and validator, and an idempotent
-seed script + shared test-DB helpers. 108 tests pass, lint/typecheck/build
-all clean.
+Phases 0, 1, and 2 are complete. Phase 1 is now marked passed after the user
+confirmed two independent LLM reviews on top of the earlier T1.1 human
+verification and DB-backed test coverage. Phase 3 is underway: T3.1/T3.2 are
+being landed together as the first forecast CRUD slice, with the create flow,
+initial version creation, and signed-in dashboard list implemented and local
+unit/RTL/typecheck/build checks green.
 
 ### Next steps
 
-1. Phase 1 is fully done and human-verified (T1.1's GitHub OAuth flow
-   confirmed end-to-end locally and in production); PR #5 is open and
-   waiting for an independent reviewer who implemented no T1.x ticket —
-   left unmerged for Codex per the user's request.
+1. Clear the live DB harness issue that currently prevents the new T3
+   repository integration tests from running in this shell, then mark T3.1/T3.2
+   test coverage fully green.
+2. Continue Phase 3 with the editor shell (T3.3), which now has a persisted
+   forecast/create path and dashboard entry points to build on.
 
 ## Coordination rules
 
@@ -320,3 +313,14 @@ all clean.
     pass-through header for authed/public requests.
   - Verification: 114 tests pass (up from 108), lint/typecheck/build all
     clean. Pushed to PR #5, still open and unmerged, awaiting re-review.
+- 2026-06-21: Began Phase 3 on the current branch by combining T3.1 + T3.2
+  into one slice: added a server action-backed create-forecast flow with an
+  immediate `source:'initial'` version, dashboard listing + due badge logic,
+  and a forecast page that loads the current version. Local cadence/RTL tests,
+  lint, typecheck, and `next build` passed. DB-backed repository tests for the
+  new create/list paths were added but are not marked green yet because
+  sourcing `.env.local` in this shell produced a live DB insert failure before
+  the test bodies could execute.
+- 2026-06-21: Pulled `origin/main` into the current branch per user request
+  and updated Phase 1's review gate from `pending` to `passed` based on the
+  user's confirmation that two independent LLM reviews had been completed.
