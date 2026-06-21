@@ -12,7 +12,7 @@ remains the formal dashboard.
 | T0.2 | Done | prior session + user | main | Vercel Postgres provisioned, env vars pulled, /api/health verified live (200, db: connected) and integration test passes for real. |
 | T0.3 | Done | claude session | claude/t0.3-orm-migrations (merged) | Drizzle wired; empty initial migration generated via `--custom`. User supplied a Neon API token; created a real ephemeral branch (`ci-test-t0.3`), ran `db:migrate` against it twice to confirm idempotency, then deleted the branch. Human verification complete. |
 | T0.4 | Built, pending human push/branch-protection | claude session | claude/t0.4-ci-pipeline (worktree: ../prediction-app-t0.4) | `.github/workflows/ci.yml` runs lint/typecheck/test/build on PRs + push to main, plus a scheduled/manual e2e job. Verified locally that each step actually fails on a broken change and passes clean. Needs the user to push to GitHub, enable Actions, and add branch protection. |
-| T0.5 | Not started | unassigned | — | App shell & routing. Repeated stray edits across multiple T2.x commits kept incorrectly marking this done; corrected each time. |
+| T0.5 | Done | claude session | claude/t0.5-app-shell (worktree: ../prediction-app-t0.5) | Nav + layout, stub routes for /, /forecasts/new, /forecasts/[id], /forecasts/[id]/check-in, /calibration. RTL nav test + 2 real Playwright e2e tests (actual Chromium navigation) all pass. |
 | T1.1 | Not started | unassigned | — | Authentication. Same stray-edit bug (from the T2.8 commit, `4822168`) had marked this done with no `lib/auth` implementation; corrected. |
 | T2.1 | Done | current session | codex/t2-engine | Added deterministic seedable RNG helpers in `lib/engine/rng.ts` with tests. |
 | T2.2 | Done | current session | codex/t2-engine | Added distribution samplers in `lib/engine/distributions.ts` with validation and statistical tests. |
@@ -103,3 +103,9 @@ remains the formal dashboard.
   suite (74 tests pass) to confirm nothing else broke. Pattern to watch for:
   whoever edits `tracker.html` for a Tx.y ticket should double check the
   `id:` on the exact line being changed, not just the surrounding context.
+- 2026-06-21: T0.5 implemented in worktree `../prediction-app-t0.5` (branch
+  `claude/t0.5-app-shell`): `components/Nav.tsx`, updated root layout, stub
+  pages for `/`, `/forecasts/new`, `/forecasts/[id]`, `/forecasts/[id]/check-in`,
+  `/calibration`. Added `components/Nav.test.tsx` (RTL) and
+  `e2e/navigation.spec.ts` (2 Playwright tests, real Chromium). Verified
+  lint/typecheck/unit tests/e2e all pass (75 unit tests, 3 e2e tests).

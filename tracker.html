@@ -130,11 +130,11 @@ const LAST_UPDATED = "2026-06-21";
 
 // Edit this alongside ticket status changes — keep it short (2-4 sentences + 3-5 next steps).
 const SUMMARY = {
-  where: "T0.1, T0.2, and T0.3 done. T0.4 (CI pipeline) is built: GitHub Actions workflow wired, all four steps (lint/typecheck/test/build) verified locally to actually fail on a broken change and pass on a clean one — still needs you to push to a real GitHub repo, enable Actions, and set branch protection. Phase 2 is complete: T2.1 through T2.8 are done, covering deterministic RNG, all nine distribution samplers, elicitation-to-param fitters, the canonical tree schema, composite evaluation helpers, tree validation, the Monte Carlo runner, and performance guardrails/benchmarks — all 74 engine+app tests pass. T0.5 and T1.1 are genuinely not started — repeated stray edits across several T2.x commits kept flipping random nearby tickets' progress flags by mistake (T0.4, T0.5, and T1.1 each got falsely marked done at least once); each has now been audited against real code and corrected. DB strategy decided (Neon branches); auth provider still open. Click any ticket below to expand its goal, acceptance criteria, tests, dependencies, and verification checklist.",
+  where: "T0.1–T0.3 done. T0.4 (CI pipeline) is built, pending your push/Actions/branch-protection setup. T0.5 (app shell & routing) is now done: nav + layout, stub routes for /, /forecasts/new, /forecasts/[id], /forecasts/[id]/check-in, /calibration, an RTL nav test, and two real Playwright e2e tests driving Chromium through actual navigation — all verified passing. Phase 2 is complete (T2.1–T2.8). T1.1 (auth) is correctly still not started. DB strategy decided (Neon branches); auth provider still open. Click any ticket below to expand its goal, acceptance criteria, tests, dependencies, and verification checklist.",
   next: [
     "You: push this repo to GitHub, enable Actions, then add a branch protection rule requiring the build-and-test check — that closes out T0.4",
-    "T0.5 (App shell & routing skeleton) is next up and only depends on T0.1 — not actually started yet despite earlier tracker drift",
-    "Decide auth provider (GitHub OAuth vs credentials) before starting T1.1 (also not actually started)",
+    "T1.1 (Authentication) is next — needs you to choose/create an OAuth provider first",
+    "T1.2 (Schema & migrations) can start once T1.1's provider decision unblocks the dependency chain",
     "When editing tracker.html, double-check the ticket id on the line you're changing — this has been a recurring mistake",
   ],
 };
@@ -179,7 +179,7 @@ const phases = [
       acceptance: ["All routes render a titled placeholder", "Nav links work"],
       tests: ["RTL renders layout with nav", "Playwright navigates between routes"],
       dependsOn: ["T0.1"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
+      progress: { started: true, testsWritten: true, humanVerified: false } },
   ]},
   { name: "Phase 1 — Auth & data layer", tickets: [
     { id: "T1.1", title: "Authentication",
