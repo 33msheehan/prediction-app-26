@@ -26,9 +26,42 @@ jobs:
 
       - run: npm run typecheck
 
-      - run: npm test
+      - name: Set ephemeral branch expiration
+        run: echo "NEON_BRANCH_EXPIRES_AT=$(date -u --date '+1 day' +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+
+      - name: Create ephemeral Neon branch
+        id: create-neon-branch
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch_name: ci-${{ github.run_id }}-${{ github.run_attempt }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          expires_at: ${{ env.NEON_BRANCH_EXPIRES_AT }}
+
+      - name: Apply migrations
+        run: npm run db:migrate
+        env:
+          POSTGRES_URL: ${{ steps.create-neon-branch.outputs.db_url }}
+
+      - name: Verify migrations are idempotent
+        run: npm run db:migrate
+        env:
+          POSTGRES_URL: ${{ steps.create-neon-branch.outputs.db_url }}
+
+      - name: Run tests against ephemeral database
+        run: npm test
+        env:
+          POSTGRES_URL: ${{ steps.create-neon-branch.outputs.db_url }}
 
       - run: npm run build
+
+      - name: Delete ephemeral Neon branch
+        if: always() && steps.create-neon-branch.outputs.branch_id != ''
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch: ${{ steps.create-neon-branch.outputs.branch_id }}
+          api_key: ${{ secrets.NEON_API_KEY }}
 
   e2e:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
