@@ -306,6 +306,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* `npm run dev` serves a placeholder page; `lint`, `typecheck`, `test` all run and pass on an empty smoke test.
 - *Tests:* one trivial Vitest smoke test; one Playwright test that loads `/` and asserts a heading.
 - *Depends on:* —
+- *Human:* —
 
 **T0.2 — Vercel project & Postgres provisioning**
 - *Goal:* Deployable skeleton with a connected database.
@@ -313,6 +314,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* App deploys to a Vercel preview URL; a `/api/health` route returns `{ ok: true, db: 'connected' }` after a trivial `SELECT 1`.
 - *Tests:* integration test hitting `/api/health` against a test DB returns db-connected.
 - *Depends on:* T0.1
+- *Human:* Requires logging into Vercel/Neon to create the project and database and supplying the connection string — accounts and credentials only you hold.
 
 **T0.3 — ORM & migrations**
 - *Goal:* Drizzle configured with migration workflow.
@@ -320,6 +322,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Running migrations against a fresh DB succeeds and is idempotent.
 - *Tests:* CI step applies migrations to an ephemeral Neon branch and reports success.
 - *Depends on:* T0.2
+- *Human:* Provisioning a Neon API token (your account) was needed to create/destroy a real ephemeral branch for verification.
 
 **T0.4 — CI pipeline**
 - *Goal:* PRs gated on quality.
@@ -327,6 +330,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* A PR with a failing test/types is blocked; a clean PR passes.
 - *Tests:* the pipeline itself (verify a deliberately broken branch fails).
 - *Depends on:* T0.1
+- *Human:* Needed your GitHub account to push the repo, enable Actions, and set branch protection — verified via the GitHub API: origin/main exists, one CI run completed successfully, and main reports protected: true.
 
 **T0.5 — App shell & routing skeleton**
 - *Goal:* Navigable empty screens.
@@ -334,6 +338,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* All routes render a titled placeholder; nav links work.
 - *Tests:* RTL renders layout with nav; Playwright navigates between routes.
 - *Depends on:* T0.1
+- *Human:* —
 
 ### Phase 1 — Auth & data layer
 
@@ -343,6 +348,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Unauthed access to protected routes redirects to sign-in; authed user has a stable id.
 - *Tests:* integration tests: protected route 401/redirect when unauthed; succeeds when authed (mocked session).
 - *Depends on:* T0.5
+- *Human:* Choosing/creating the OAuth provider (e.g. a GitHub OAuth app) and supplying its client id/secret requires your accounts and decisions.
 
 **T1.2 — Schema & migrations (users, forecasts, versions)**
 - *Goal:* Persisted domain model from §5.
@@ -350,6 +356,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Tables created; FKs enforced; can insert/select a forecast + version by hand.
 - *Tests:* DB tests: insert user→forecast→version; FK violation rejected; `versionNo` uniqueness per forecast.
 - *Depends on:* T0.3, T1.1
+- *Human:* —
 
 **T1.3 — Data-access layer + shared types**
 - *Goal:* Type-safe, user-scoped CRUD.
@@ -357,6 +364,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* No repository function can return another user's data; tree Zod schema rejects malformed trees (bad type, bad arity).
 - *Tests:* unit tests for Zod tree validation (valid + each invalid case from §4.3); repo tests confirming user isolation.
 - *Depends on:* T1.2
+- *Human:* —
 
 **T1.4 — Seed & DB test harness**
 - *Goal:* Reproducible local/test data.
@@ -364,6 +372,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* `npm run seed` populates a runnable example; tests can spin a clean DB.
 - *Tests:* harness self-test (seed → query → assert shape).
 - *Depends on:* T1.3
+- *Human:* —
 
 ### Phase 2 — Probabilistic core (pure, client-side; build early)
 
@@ -375,6 +384,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Same seed → identical sequence; different seeds → different.
 - *Tests:* determinism test; basic uniformity sanity (mean ≈ 0.5 over large N).
 - *Depends on:* T0.1
+- *Human:* —
 
 **T2.2 — Distribution samplers**
 - *Goal:* All nine distributions in §4.2.
@@ -382,6 +392,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Each sampler's empirical mean/variance match theory within tolerance at large N.
 - *Tests:* per-distribution statistical tests (seeded): assert mean & variance within `±` tolerance; range constraints (Beta ∈ [0,1], Poisson ∈ ℤ≥0, etc.).
 - *Depends on:* T2.1
+- *Human:* —
 
 **T2.3 — Elicitation → parameter fitters**
 - *Goal:* Human inputs → fitted params (§6.2).
@@ -389,6 +400,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Fitting then sampling recovers the input quantiles within tolerance; invalid inputs (e.g. `P10 > P90`, `mode` outside `[min,max]`) throw clear errors.
 - *Tests:* round-trip tests per fitter; invalid-input tests.
 - *Depends on:* T2.2
+- *Human:* —
 
 **T2.4 — Tree types & Zod schema**
 - *Goal:* Canonical `Tree` representation (§4.4).
@@ -396,6 +408,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Output type of every node type computed correctly.
 - *Tests:* output-type tests across all node types.
 - *Depends on:* T0.1
+- *Human:* —
 
 **T2.5 — Combinator evaluation**
 - *Goal:* Deterministic per-trial evaluation of composites (§4.2).
@@ -403,6 +416,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Exact truth-table / arithmetic behaviour.
 - *Tests:* truth tables for boolean combinators; `k_of_n` boundary cases; `threshold` for each operator; `sum`/`count_true` arithmetic.
 - *Depends on:* T2.4
+- *Human:* —
 
 **T2.6 — Tree validation**
 - *Goal:* Enforce §4.3.
@@ -410,6 +424,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Every invalid case yields a specific, human-readable error; valid trees pass.
 - *Tests:* one test per validation rule (pass + fail).
 - *Depends on:* T2.4, T2.5
+- *Human:* —
 
 **T2.7 — Monte Carlo runner**
 - *Goal:* `runForecast` (§6.3).
@@ -417,6 +432,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Matches all analytic anchors in §6.4 within `3·SE`; reproducible under fixed seed.
 - *Tests:* the §6.4 anchor suite; determinism test; a multi-level mixed tree against an independently computed expectation.
 - *Depends on:* T2.2, T2.3, T2.5, T2.6
+- *Human:* —
 
 **T2.8 — Performance guardrails & benchmark**
 - *Goal:* Keep it snappy (§6.5).
@@ -424,6 +440,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Representative headline recompute < 100ms in a browser-like env at default N.
 - *Tests:* benchmark test asserting a time budget; cap-enforcement tests.
 - *Depends on:* T2.7
+- *Human:* —
 
 ### Phase 3 — Forecast CRUD & tree editor
 
@@ -433,6 +450,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Submitting creates a forecast owned by the user and lands on its editor.
 - *Tests:* integration (creation persists, user-scoped); component test for the form; cadence validation tests.
 - *Depends on:* T1.3, T0.5
+- *Human:* —
 
 **T3.2 — Dashboard / forecast list**
 - *Goal:* See and open forecasts; spot what needs review.
@@ -440,6 +458,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Only the user's forecasts show; overdue ones are flagged; clicking opens the forecast.
 - *Tests:* due-ness computation unit tests (interval & date-based, edge cases); RTL list rendering; user-isolation test.
 - *Depends on:* T3.1
+- *Human:* —
 
 **T3.3 — Tree editor shell (outline)**
 - *Goal:* Build/edit the tree structure.
@@ -447,6 +466,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Can construct an arbitrary valid tree; invalid wiring is blocked with a clear message; root stays boolean.
 - *Tests:* component tests for add/delete/move/rename; invalid-wiring rejection test.
 - *Depends on:* T2.4, T2.6, T3.1
+- *Human:* Outline-editor feel (drag/reorder, clarity of inline validation messages) is a UX judgment call worth your eyes.
 
 **T3.4 — Leaf node editor + distribution preview**
 - *Goal:* Configure a distribution in human terms and *see* it.
@@ -454,6 +474,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Editing inputs updates the preview; implied quantiles match the fitter; bad inputs show errors, not crashes.
 - *Tests:* component tests per leaf type; preview reflects fitted params; error-state tests.
 - *Depends on:* T2.3, T3.3
+- *Human:* This is the 'good-habits' feature — whether the preview actually makes you confront your tails is your call, not a unit test's.
 - *(Good-habits feature: the preview forces the user to confront what their numbers actually imply about the tails.)*
 
 **T3.5 — Composite node editor**
@@ -462,6 +483,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Config persists into the tree; `k_of_n` enforces `1 ≤ k ≤ n`; `threshold` requires a numeric child.
 - *Tests:* component tests; constraint tests.
 - *Depends on:* T3.3
+- *Human:* —
 
 **T3.6 — Live headline in editor**
 - *Goal:* Immediate feedback as the model changes.
@@ -469,6 +491,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Headline updates within the debounce window; CI shown; invalid tree shows guidance not a number.
 - *Tests:* component test (edit → headline changes); CI displayed; invalid-state handling.
 - *Depends on:* T2.7, T3.3, T3.4, T3.5
+- *Human:* Whether the debounce/recompute actually feels snappy in a real browser is worth confirming yourself.
 
 **T3.7 — Persist version (save)**
 - *Goal:* Save the tree as an immutable version with its computed headline.
@@ -476,6 +499,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Saving creates exactly one new version; reopening shows the latest tree + headline; server re-validates the tree before insert.
 - *Tests:* integration (save → version row with correct headline within tolerance; server rejects invalid tree); reload test.
 - *Depends on:* T1.3, T3.6
+- *Human:* —
 
 ### Phase 4 — Living forecasts: check-ins, history, update discipline
 
@@ -485,6 +509,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Returns versions in order with headline + timestamp + source + rationale.
 - *Tests:* repo test (ordering, completeness); user-isolation test.
 - *Depends on:* T3.7
+- *Human:* —
 
 **T4.2 — Belief-over-time chart**
 - *Goal:* Visualise how the forecast moved.
@@ -492,6 +517,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Chart reflects stored versions; check-in points distinguishable; empty/single-point states handled.
 - *Tests:* component test with fixture versions; empty-state test.
 - *Depends on:* T4.1
+- *Human:* You're colorblind — worth confirming check-in markers are distinguishable by shape/position, not just color, same principle as this tracker.
 
 **T4.3 — Cadence engine**
 - *Goal:* Drive "when to revisit."
@@ -499,6 +525,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Correct next-due for each cadence kind; dates in the past flagged overdue; `none` never due.
 - *Tests:* exhaustive unit tests (interval rollover, multiple dates, past/future, timezone-safe comparisons).
 - *Depends on:* T3.1
+- *Human:* —
 
 **T4.4 — Check-in flow**
 - *Goal:* Structured re-evaluation.
@@ -506,6 +533,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* User can revise any leaf; live headline recomputes; cancelling makes no version.
 - *Tests:* component/integration: adjust → recompute → save creates a `checkin` version; cancel creates none.
 - *Depends on:* T3.4, T3.6, T4.3
+- *Human:* —
 
 **T4.5 — Update-discipline guardrails**
 - *Goal:* Discourage wild swings, encourage incremental updates.
@@ -513,6 +541,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Large moves cannot be saved without a rationale; small moves save freely; prior/proposed both shown; threshold configurable.
 - *Tests:* unit tests on the threshold/diff logic; component test (large move blocks save until rationale; small move doesn't); persistence of rationale.
 - *Depends on:* T4.4, T4.1
+- *Human:* Whether the large-move prompt feels like useful friction (vs annoying) is a product-feel judgment only you can make.
 
 **T4.6 — Rationale capture & display**
 - *Goal:* Make the reasoning trail first-class.
@@ -520,6 +549,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Rationale persists and appears against the correct version.
 - *Tests:* integration (rationale stored on right version); display test.
 - *Depends on:* T4.5, T4.2
+- *Human:* —
 
 ### Phase 5 — Resolution
 
@@ -529,6 +559,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Resolving sets fields and prevents new versions; double-resolution prevented.
 - *Tests:* integration (resolve sets state, locks edits, blocks re-resolve); user-isolation.
 - *Depends on:* T3.7
+- *Human:* Resolving a forecast is a real, hard-to-reverse data action — worth confirming before locking edits on real data.
 
 **T5.2 — Resolved-state UI**
 - *Goal:* Show outcome against the forecast.
@@ -536,6 +567,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Resolved view clearly shows outcome vs trajectory; no edit affordances.
 - *Tests:* component test with a resolved fixture.
 - *Depends on:* T5.1, T4.2
+- *Human:* —
 
 **T5.3 — Auto-resolution scaffold (deferred logic)**
 - *Goal:* Leave a clean hook for public-event auto-resolution later.
@@ -543,6 +575,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Flag persists; stub route is auth-gated and returns a clear not-implemented response.
 - *Tests:* route auth test; flag persistence.
 - *Depends on:* T5.1, (T7.1 if built first)
+- *Human:* —
 
 ### Phase 6 — Calibration loop
 
@@ -552,6 +585,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Known values exact: `brier(0.7,1)=0.09`, `brier(0.5,0)=0.25`, `logScore(0.7,1)=0.3567…`.
 - *Tests:* known-value unit tests; clamping prevents `±∞`.
 - *Depends on:* T0.1
+- *Human:* —
 
 **T6.2 — Per-forecast score computation**
 - *Goal:* Score each resolved forecast.
@@ -559,6 +593,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Each resolved forecast yields a Brier + log score; open forecasts excluded.
 - *Tests:* integration over seeded resolved forecasts; excludes open ones.
 - *Depends on:* T6.1, T5.1
+- *Human:* —
 
 **T6.3 — Calibration dashboard**
 - *Goal:* Show the user how well-calibrated they are.
@@ -566,6 +601,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Diagram + aggregates render from real resolved data; sparse-data state is honest, not misleading.
 - *Tests:* binning unit tests (assignment, mean-per-bin); component test with a fixture set; sparse-data messaging test.
 - *Depends on:* T6.2
+- *Human:* Colorblind-safe check on the reliability diagram, and whether sparse-data messaging reads as honest rather than discouraging, are worth your eyes.
 
 **T6.4 — Subevent-level scoring (optional/advanced)**
 - *Goal:* Richer feedback where sub-events are themselves resolvable.
@@ -573,6 +609,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Resolvable leaves can be scored independently; per-node scores computed correctly.
 - *Tests:* scoring tests on tagged-leaf fixtures.
 - *Depends on:* T6.2
+- *Human:* —
 
 ### Phase 7 — Co-pilot scaffold (LLM path; features deferred)
 
@@ -582,6 +619,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Key absent from client bundle; unauthed requests rejected; a mocked happy-path returns a model response shape.
 - *Tests:* bundle-inspection/test asserting the key string never appears client-side; auth-required test; user-scoping test; (mocked) happy-path.
 - *Depends on:* T1.1
+- *Human:* Only you hold the ANTHROPIC_API_KEY — it has to be supplied via your env/Vercel secrets, I can't generate or obtain it.
 
 **T7.2 — "Suggest decomposition" stub (feature-flagged)**
 - *Goal:* Define the future contract without shipping the product feature.
@@ -589,6 +627,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Flag off by default; when on, returns a well-typed (possibly trivial) suggestion; off → endpoint inert.
 - *Tests:* flag on/off behaviour; response schema validation (mocked LLM).
 - *Depends on:* T7.1
+- *Human:* —
 
 ### Phase 8 — Polish, mobile-readiness, hardening
 
@@ -598,6 +637,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Core screens usable at mobile widths; app is installable; Lighthouse PWA checks pass.
 - *Tests:* a couple of viewport-sized Playwright runs; manifest presence test.
 - *Depends on:* Phases 3–6 screens.
+- *Human:* Actually installing the PWA on your phone and confirming it feels right is a physical-device check I can't do.
 
 **T8.2 — States: loading / empty / error**
 - *Goal:* No raw spinners or crashes.
@@ -605,6 +645,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* Each major screen has all three states.
 - *Tests:* component tests forcing each state.
 - *Depends on:* Phases 3–6.
+- *Human:* —
 
 **T8.3 — Accessibility pass**
 - *Goal:* Keyboard + screen-reader sane.
@@ -612,6 +653,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* No critical axe violations on core screens; tree editor operable by keyboard.
 - *Tests:* automated axe checks in component/E2E tests.
 - *Depends on:* Phases 3–6.
+- *Human:* Automated axe checks miss real keyboard-only and screen-reader flow — and given your colorblindness, contrast matters more than usual here.
 
 **T8.4 — Golden-path E2E**
 - *Goal:* Prove the whole loop.
@@ -619,6 +661,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* The full journey passes headlessly in CI.
 - *Tests:* the E2E itself.
 - *Depends on:* Phases 1–6.
+- *Human:* —
 
 **T8.5 — Deployment runbook & docs**
 - *Goal:* Reproducible setup.
@@ -626,6 +669,7 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Acceptance:* A new dev can go from clone → running locally → deployed using only the docs.
 - *Tests:* doc-driven dry run (manual checklist).
 - *Depends on:* all.
+- *Human:* The actual production deploy and confirming the docs work end-to-end is something only you can execute and sign off on.
 
 ---
 
