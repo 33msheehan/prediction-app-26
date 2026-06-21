@@ -10,7 +10,7 @@ remains the formal dashboard.
 | --- | --- | --- | --- | --- |
 | T0.1 | Done | prior session | main | Tooling scaffold is in place; tracker marks started/tests complete. |
 | T0.2 | Done | prior session + user | main | Vercel Postgres provisioned, env vars pulled, /api/health verified live (200, db: connected) and integration test passes for real. |
-| T0.3 | Done | claude session | claude/t0.3-orm-migrations (merged) | Drizzle wired; empty initial migration generated via `--custom`. User supplied a Neon API token; created a real ephemeral branch (`ci-test-t0.3`), ran `db:migrate` against it twice to confirm idempotency, then deleted the branch. Human verification complete. |
+| T0.3 | Changes requested | claude session | claude/t0.3-orm-migrations (merged) | Local migration workflow and real-DB idempotency pass, but the required ephemeral-Neon CI step is absent. See `reviews/phase-0-independent-review.md`. |
 | T0.4 | Done | claude session + user | main | `.github/workflows/ci.yml` runs lint/typecheck/test/build on PRs + push to main. User pushed to `github.com/33msheehan/prediction-app-26`, enabled Actions, and added branch protection. Verified via GitHub API: `origin/main` exists, one CI run completed with `success`, `branches/main` reports `protected: true`. |
 | T0.5 | Done | claude session | claude/t0.5-app-shell (worktree: ../prediction-app-t0.5) | Nav + layout, stub routes for /, /forecasts/new, /forecasts/[id], /forecasts/[id]/check-in, /calibration. RTL nav test + 2 real Playwright e2e tests (actual Chromium navigation) all pass. |
 | T1.1 | Not started | unassigned | — | Authentication. Same stray-edit bug (from the T2.8 commit, `4822168`) had marked this done with no `lib/auth` implementation; corrected. |
@@ -30,7 +30,7 @@ phase. The reviewer must be an agent who implemented no ticket in that phase.
 
 | Phase | Implementation | Independent review | Reviewer | Evidence / findings |
 | --- | --- | --- | --- | --- |
-| Phase 0 | Ready for review | Pending | Unassigned independent agent | All five tickets done (T0.4 verified via GitHub API: CI run success, branch protection enabled). The implementing agent must not pass this gate. |
+| Phase 0 | Incomplete (T0.3) | Changes requested | Codex, 2026-06-21 | T0.1, T0.2, T0.4, and T0.5 pass review. T0.3 is missing its required ephemeral-Neon migration CI step; remote CI currently skips both DB tests. Full evidence: `reviews/phase-0-independent-review.md`. |
 | Phase 1 | Not started | Not ready | — | Phase tickets are not complete. |
 | Phase 2 | Ready for review | Pending | Unassigned independent agent | Review T2.1–T2.8 against `BUILD_PLAN.md`; inspect merged code and rerun lint, typecheck, full tests, and engine benchmarks. The implementing agent must not pass this gate. |
 | Phase 3 | Not started | Not ready | — | — |
@@ -141,3 +141,11 @@ the coordination log until re-review passes.
   run together are strong evidence it's set up correctly.) Phase 0 is now
   fully implemented (T0.1–T0.5) and moved to "ready for review" under the
   same independent-review gate as Phase 2.
+- 2026-06-21: Codex independently reviewed Phase 0. T0.1, T0.2, T0.4,
+  and T0.5 passed. T0.3 returned to changes requested because its listed CI
+  test is not implemented: `.github/workflows/ci.yml` never provisions an
+  ephemeral Neon branch or runs `db:migrate`, the repository has no Actions
+  secrets, and both DB tests skip remotely. Local lint, typecheck, 75 unit
+  tests, production build, and both real-DB integration tests passed. Phase 0
+  remains incomplete pending remediation and re-review; see
+  `reviews/phase-0-independent-review.md`.
