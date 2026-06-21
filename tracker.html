@@ -371,9 +371,10 @@
 const LAST_UPDATED = "2026-06-21";
 
 const SUMMARY = {
-  "where": "Phase 0 (scaffold & infrastructure) is complete: all five tickets passed independent review, including T0.3 after fixing its CI remediation (the test step now uses a pooled Neon connection string, as <code>@vercel/postgres</code> requires). Phase 2 (probabilistic core) passed independent review by Claude: a schema/fitter inconsistency on degenerate triangular/PERT params and a missing duplicate-node-id check in <code>validateTree()</code> were found and fixed, with 3 new regression tests (78 tests total, lint/typecheck/build all clean). All of Phase 1 (T1.1–T1.4: auth, schema/migrations, data-access layer, seed & test harness) is implemented and tested against the real provisioned Neon DB: GitHub OAuth via Auth.js v5 (JWT sessions, no DB adapter — we upsert into our own <code>users</code> table instead of adding Auth.js's account/ session tables), the <code>users</code>/<code>forecasts</code>/<code>forecast_versions</code> schema with the circular current-version FK, a <code>userId</code>-scoped repository layer reusing the Phase 2 engine's tree schema and validator, and an idempotent seed script + shared test-DB helpers. 108 tests pass, lint/typecheck/build all clean.",
+  "where": "Phases 0, 1, and 2 are complete. Phase 3's implementation is now in place on the current branch: T3.1-T3.3 cover create/list/editor-shell, and T3.4-T3.7 add leaf/composite editing, a debounced live headline, and save-to-version persistence from the editor. Local lint, typecheck, full unit suite, and production build are green; the remaining DB-backed T3 assertions are already written and will run in PR CI's ephemeral Neon job because this checkout has no <code>.env.local</code>.",
   "next": [
-    "Phase 1 is fully done and human-verified (T1.1's GitHub OAuth flow confirmed end-to-end locally and in production); PR #5 is open and waiting for an independent reviewer who implemented no T1.x ticket — left unmerged for Codex per the user's request."
+    "Push the T3 completion branch and let PR CI run the DB-backed repository tests for T3.1/T3.2/T3.7 against its ephemeral Neon database.",
+    "If PR CI is green, mark the remaining T3 test flags complete and move Phase 3 to <code>pending</code> for independent review."
   ]
 };
 
@@ -532,9 +533,9 @@ const phases = [
   {
     "name": "Phase 1 — Auth & data layer",
     "phaseReview": {
-      "status": "pending",
-      "reviewer": null,
-      "reviewedAt": null
+      "status": "passed",
+      "reviewer": "Claude + Codex",
+      "reviewedAt": "2026-06-21"
     },
     "tickets": [
       {
@@ -925,7 +926,7 @@ const phases = [
           "needed": false
         },
         "progress": {
-          "started": false,
+          "started": true,
           "testsWritten": false,
           "humanVerified": false
         }
@@ -954,7 +955,7 @@ const phases = [
           "needed": false
         },
         "progress": {
-          "started": false,
+          "started": true,
           "testsWritten": false,
           "humanVerified": false
         }
@@ -988,8 +989,8 @@ const phases = [
           "reason": "Outline-editor feel (drag/reorder, clarity of inline validation messages) is a UX judgment call worth your eyes."
         },
         "progress": {
-          "started": false,
-          "testsWritten": false,
+          "started": true,
+          "testsWritten": true,
           "humanVerified": false
         }
       },
@@ -1020,8 +1021,8 @@ const phases = [
           "reason": "This is the 'good-habits' feature — whether the preview actually makes you confront your tails is your call, not a unit test's."
         },
         "progress": {
-          "started": false,
-          "testsWritten": false,
+          "started": true,
+          "testsWritten": true,
           "humanVerified": false
         }
       },
@@ -1050,8 +1051,8 @@ const phases = [
           "needed": false
         },
         "progress": {
-          "started": false,
-          "testsWritten": false,
+          "started": true,
+          "testsWritten": true,
           "humanVerified": false
         }
       },
@@ -1085,8 +1086,8 @@ const phases = [
           "reason": "Whether the debounce/recompute actually feels snappy in a real browser is worth confirming yourself."
         },
         "progress": {
-          "started": false,
-          "testsWritten": false,
+          "started": true,
+          "testsWritten": true,
           "humanVerified": false
         }
       },
@@ -1117,7 +1118,7 @@ const phases = [
           "needed": false
         },
         "progress": {
-          "started": false,
+          "started": true,
           "testsWritten": false,
           "humanVerified": false
         }
