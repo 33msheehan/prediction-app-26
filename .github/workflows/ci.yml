@@ -79,6 +79,12 @@ jobs:
       - run: npx playwright install --with-deps chromium
 
       - run: npm run test:e2e
+        env:
+          # Auth.js throws on every request without a secret (and the dev
+          # server backing these e2e tests has no real GitHub OAuth app to
+          # talk to anyway) -- a fixed non-production value is all that's
+          # needed for proxy.ts/getCurrentUser() to behave deterministically.
+          AUTH_SECRET: e2e-test-secret-do-not-use-in-production
 
   # tracker.html and the README TRACKER block are generated from BUILD_PLAN.md +
   # PROGRESS.md. Agents edit only those two files; this job keeps the rendered
