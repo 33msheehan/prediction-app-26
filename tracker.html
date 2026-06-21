@@ -132,13 +132,12 @@ const LAST_UPDATED = "2026-06-21";
 
 // Edit this alongside ticket status changes — keep it short (2-4 sentences + 3-5 next steps).
 const SUMMARY = {
-  where: "T0.1–T0.3 done. T0.4 (CI pipeline) is built, pending your push/Actions/branch-protection setup. T0.5 (app shell & routing) is now done: nav + layout, stub routes for /, /forecasts/new, /forecasts/[id], /forecasts/[id]/check-in, /calibration, an RTL nav test, and two real Playwright e2e tests driving Chromium through actual navigation — all verified passing. Phase 2 implementation is complete (T2.1–T2.8, all 74 engine+app tests pass), but under the independent review gate it's 'ready for review' rather than verified complete — an agent who implemented no Phase 2 ticket must review and pass it before the phase counts as done. T1.1 (auth) is correctly still not started. DB strategy decided (Neon branches); auth provider still open. Click any ticket below to expand its goal, acceptance criteria, tests, dependencies, and verification checklist.",
+  where: "Phase 0 implementation is complete: T0.1–T0.5 all done. T0.4 (CI pipeline) closed out — verified via the GitHub API that origin/main exists, the CI workflow ran and passed, and branch protection is enabled on main. T0.5 (app shell & routing) done: nav + layout, stub routes, RTL + Playwright tests all passing. Phase 2 implementation is complete (T2.1–T2.8, all 74 engine+app tests pass), but under the independent review gate it's 'ready for review' rather than verified complete — an agent who implemented no Phase 2 ticket must review and pass it before the phase counts as done. T1.1 (auth) is correctly still not started. DB strategy decided (Neon branches); auth provider still open. Click any ticket below to expand its goal, acceptance criteria, tests, dependencies, and verification checklist.",
   next: [
-    "You: push this repo to GitHub, enable Actions, then add a branch protection rule requiring the build-and-test check — that closes out T0.4",
     "T1.1 (Authentication) is next — needs you to choose/create an OAuth provider first",
     "T1.2 (Schema & migrations) can start once T1.1's provider decision unblocks the dependency chain",
-    "When editing tracker.html, double-check the ticket id on the line you're changing — this has been a recurring mistake",
     "Independent agent: review Phase 2 and record reviewer, date, commands, findings, and verdict in PROGRESS.md before setting its phaseReview status to passed",
+    "Phase 0 should now be eligible for its own independent review pass under the same gate as Phase 2",
   ],
 };
 
@@ -147,7 +146,7 @@ const SUMMARY = {
 // not just "this touches a DB". progress flags are hand-set by Claude as work lands; "complete" is always derived, never stored,
 // so the checklist can't drift out of sync with itself. Each phase also has an independent review gate.
 const phases = [
-  { name: "Phase 0 — Scaffold & infrastructure", phaseReview: { status: "not_ready", reviewer: null, reviewedAt: null }, tickets: [
+  { name: "Phase 0 — Scaffold & infrastructure", phaseReview: { status: "pending", reviewer: null, reviewedAt: null }, tickets: [
     { id: "T0.1", title: "Initialise project & tooling",
       goal: "Working Next.js + TS repo with linting, formatting, and test runners wired.",
       implementation: ["create-next-app (App Router, TS)", "Add ESLint, Prettier, Vitest, RTL, Playwright", "npm scripts: dev/build/lint/typecheck/test/test:e2e"],
@@ -174,8 +173,8 @@ const phases = [
       implementation: ["GitHub Actions workflow: install, lint, typecheck, test, build", "Optionally test:e2e on a schedule"],
       acceptance: ["A PR with a failing test/types is blocked", "A clean PR passes"],
       tests: ["The pipeline itself (verify a deliberately broken branch fails)"],
-      dependsOn: ["T0.1"], human: { needed: true, reason: "Needs a GitHub repo you own with Actions enabled, plus branch protection requiring the check — I can write the workflow file and verify each step fails/passes locally, but can't create/push to your repo, enable Actions, or set branch protection without you." },
-      progress: { started: true, testsWritten: true, humanVerified: false } },
+      dependsOn: ["T0.1"], human: { needed: true, reason: "Needed your GitHub account to push the repo, enable Actions, and set branch protection — verified via the GitHub API: origin/main exists, one CI run completed successfully, and main reports protected: true." },
+      progress: { started: true, testsWritten: true, humanVerified: true } },
     { id: "T0.5", title: "App shell & routing skeleton",
       goal: "Navigable empty screens.",
       implementation: ["Layout, nav, and stub routes: /, /forecasts/new, /forecasts/[id], /forecasts/[id]/check-in, /calibration"],

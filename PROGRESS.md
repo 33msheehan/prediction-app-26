@@ -11,7 +11,7 @@ remains the formal dashboard.
 | T0.1 | Done | prior session | main | Tooling scaffold is in place; tracker marks started/tests complete. |
 | T0.2 | Done | prior session + user | main | Vercel Postgres provisioned, env vars pulled, /api/health verified live (200, db: connected) and integration test passes for real. |
 | T0.3 | Done | claude session | claude/t0.3-orm-migrations (merged) | Drizzle wired; empty initial migration generated via `--custom`. User supplied a Neon API token; created a real ephemeral branch (`ci-test-t0.3`), ran `db:migrate` against it twice to confirm idempotency, then deleted the branch. Human verification complete. |
-| T0.4 | Built, pending human push/branch-protection | claude session | claude/t0.4-ci-pipeline (worktree: ../prediction-app-t0.4) | `.github/workflows/ci.yml` runs lint/typecheck/test/build on PRs + push to main, plus a scheduled/manual e2e job. Verified locally that each step actually fails on a broken change and passes clean. Needs the user to push to GitHub, enable Actions, and add branch protection. |
+| T0.4 | Done | claude session + user | main | `.github/workflows/ci.yml` runs lint/typecheck/test/build on PRs + push to main. User pushed to `github.com/33msheehan/prediction-app-26`, enabled Actions, and added branch protection. Verified via GitHub API: `origin/main` exists, one CI run completed with `success`, `branches/main` reports `protected: true`. |
 | T0.5 | Done | claude session | claude/t0.5-app-shell (worktree: ../prediction-app-t0.5) | Nav + layout, stub routes for /, /forecasts/new, /forecasts/[id], /forecasts/[id]/check-in, /calibration. RTL nav test + 2 real Playwright e2e tests (actual Chromium navigation) all pass. |
 | T1.1 | Not started | unassigned | — | Authentication. Same stray-edit bug (from the T2.8 commit, `4822168`) had marked this done with no `lib/auth` implementation; corrected. |
 | T2.1 | Done | current session | codex/t2-engine | Added deterministic seedable RNG helpers in `lib/engine/rng.ts` with tests. |
@@ -30,7 +30,7 @@ phase. The reviewer must be an agent who implemented no ticket in that phase.
 
 | Phase | Implementation | Independent review | Reviewer | Evidence / findings |
 | --- | --- | --- | --- | --- |
-| Phase 0 | In progress | Not ready | — | T0.4 still needs human verification; T0.5 is not started. |
+| Phase 0 | Ready for review | Pending | Unassigned independent agent | All five tickets done (T0.4 verified via GitHub API: CI run success, branch protection enabled). The implementing agent must not pass this gate. |
 | Phase 1 | Not started | Not ready | — | Phase tickets are not complete. |
 | Phase 2 | Ready for review | Pending | Unassigned independent agent | Review T2.1–T2.8 against `BUILD_PLAN.md`; inspect merged code and rerun lint, typecheck, full tests, and engine benchmarks. The implementing agent must not pass this gate. |
 | Phase 3 | Not started | Not ready | — | — |
@@ -131,3 +131,13 @@ the coordination log until re-review passes.
   `/calibration`. Added `components/Nav.test.tsx` (RTL) and
   `e2e/navigation.spec.ts` (2 Playwright tests, real Chromium). Verified
   lint/typecheck/unit tests/e2e all pass (75 unit tests, 3 e2e tests).
+- 2026-06-21: T0.4 fully closed — user pushed the repo to GitHub
+  (`33msheehan/prediction-app-26`), enabled Actions, and added a branch
+  protection rule on `main`. Verified via the public GitHub API rather than
+  taking it on faith: `GET /repos/.../actions/runs` shows one completed run
+  with `conclusion: success`; `GET /repos/.../branches/main` shows
+  `protected: true`. (Couldn't check the exact required-check name without
+  an auth token — that one detail is unverified, but protection + a green
+  run together are strong evidence it's set up correctly.) Phase 0 is now
+  fully implemented (T0.1–T0.5) and moved to "ready for review" under the
+  same independent-review gate as Phase 2.
