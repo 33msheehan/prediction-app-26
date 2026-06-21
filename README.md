@@ -44,7 +44,7 @@ This project uses Vercel Postgres (Neon-backed). To connect a database:
 3. Run `npx vercel env pull .env.local` to pull the generated `POSTGRES_URL` (and related vars) into `.env.local` — see [`.env.example`](.env.example) for the full list.
 4. `GET /api/health` ([app/api/health/route.ts](app/api/health/route.ts)) runs a trivial `SELECT 1` and returns `{ ok: true, db: 'connected' }` once `POSTGRES_URL` is set.
 
-The integration test in [app/api/health/route.test.ts](app/api/health/route.test.ts) skips automatically when `POSTGRES_URL` is unset, and runs for real once it is — including in CI against a Neon branch (T0.3).
+The integration test in [app/api/health/route.test.ts](app/api/health/route.test.ts) skips automatically when `POSTGRES_URL` is unset, and runs for real once it is — including in CI against an ephemeral Neon branch (T0.3).
 
 ## Migrations (T0.3)
 
@@ -56,8 +56,15 @@ The integration test in [app/api/health/route.test.ts](app/api/health/route.test
 
 [lib/db/migrations.test.ts](lib/db/migrations.test.ts) asserts the migration history is exactly what's expected after `db:migrate` runs; like the health check test, it skips without `POSTGRES_URL`.
 
+CI creates a uniquely named Neon branch for each gated run, applies migrations
+twice to verify idempotency, and runs both DB integration tests against that
+branch. The branch is deleted with an `always()` cleanup step and has a one-day
+expiration as a fallback. This requires the repository Actions secret
+`NEON_API_KEY` and Actions variable `NEON_PROJECT_ID`; neither value is committed
+to the repository.
+
 ## CI (T0.4)
 
-[.github/workflows/ci.yml](.github/workflows/ci.yml) runs on every pull request and push to `main`: `npm ci`, then `lint`, `typecheck`, `test`, and `build` in sequence — any failing step fails the job. `test:e2e` (Playwright) runs separately on a daily schedule and via manual dispatch, since it needs a running dev server and browser binaries.
+[.github/workflows/ci.yml](.github/workflows/ci.yml) runs on every pull request and push to `main`: `npm ci`, then `lint`, `typecheck`, ephemeral-database migration checks, the full test suite, and `build` in sequence — any failing step fails the job. `test:e2e` (Playwright) runs separately on a daily schedule and via manual dispatch, since it needs a running dev server and browser binaries.
 
 To gate merges on this, the repo needs **branch protection** requiring the `build-and-test` check to pass before merging — set that up once this is pushed to GitHub (Settings → Branches → Branch protection rules).
