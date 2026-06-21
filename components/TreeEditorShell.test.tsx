@@ -95,10 +95,46 @@ function kOfNEditorTree(): Tree {
   };
 }
 
+// An 'or' under the boolean root whose only child is numeric — invalid wiring
+// nested two levels deep, used to assert the ancestor error trail.
+function deeplyInvalidTree(): Tree {
+  return {
+    root: {
+      id: 'root',
+      label: 'Root',
+      kind: 'composite',
+      type: 'and',
+      config: undefined,
+      children: [
+        {
+          id: 'branch',
+          label: 'Branch',
+          kind: 'composite',
+          type: 'or',
+          config: undefined,
+          children: [
+            {
+              id: 'bad-leaf',
+              label: 'Bad leaf',
+              kind: 'leaf',
+              type: 'normal',
+              params: { mu: 0, sigma: 1 },
+              elicitation: { p10: -1.2816, p50: 0, p90: 1.2816 },
+              children: [],
+            },
+          ],
+        },
+      ],
+    },
+  };
+}
+
 describe('TreeEditorShell', () => {
-  it('renames a node inline', async () => {
+  it('renames the selected node inline', async () => {
     const user = userEvent.setup();
     render(<TreeEditorShell forecastId="forecast-1" initialTree={editorTree()} />);
+
+    await user.click(screen.getByRole('button', { name: 'Select Child A' }));
 
     const input = screen.getByLabelText('Label for child-a');
     await user.clear(input);
@@ -107,7 +143,7 @@ describe('TreeEditorShell', () => {
     expect(screen.getByDisplayValue('Updated child')).toBeInTheDocument();
   });
 
-  it('adds a child to a composite node', async () => {
+  it('adds a child to the selected composite node', async () => {
     const user = userEvent.setup();
     render(<TreeEditorShell forecastId="forecast-1" initialTree={editorTree()} />);
 
@@ -117,31 +153,34 @@ describe('TreeEditorShell', () => {
     expect(screen.getByDisplayValue('New or')).toBeInTheDocument();
   });
 
-  it('deletes a non-root node', async () => {
+  it('deletes the selected non-root node', async () => {
     const user = userEvent.setup();
     render(<TreeEditorShell forecastId="forecast-1" initialTree={editorTree()} />);
 
-    await user.click(screen.getAllByRole('button', { name: 'Delete' })[1]);
+    await user.click(screen.getByRole('button', { name: 'Select Child A' }));
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
 
-    expect(screen.queryByLabelText('Label for child-a')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Select Child A' })).not.toBeInTheDocument();
   });
 
-  it('reorders sibling nodes', async () => {
+  it('reorders sibling nodes from the inspector', async () => {
     const user = userEvent.setup();
     render(<TreeEditorShell forecastId="forecast-1" initialTree={editorTree()} />);
 
-    await user.click(screen.getAllByRole('button', { name: 'Move down' })[1]);
+    await user.click(screen.getByRole('button', { name: 'Select Child A' }));
+    await user.click(screen.getByRole('button', { name: 'Move down' }));
 
-    const childInputs = screen
-      .getAllByDisplayValue(/Child [AB]/)
-      .map((element) => element.getAttribute('value'));
-    expect(childInputs).toEqual(['Child B', 'Child A']);
+    const order = screen
+      .getAllByRole('button', { name: /^Select / })
+      .map((element) => element.getAttribute('aria-label'));
+    expect(order).toEqual(['Select Root', 'Select Child B', 'Select Child A']);
   });
 
   it('blocks invalid child output type changes with a clear message', async () => {
     const user = userEvent.setup();
     render(<TreeEditorShell forecastId="forecast-1" initialTree={editorTree()} />);
 
+    await user.click(screen.getByRole('button', { name: 'Select Child A' }));
     await user.selectOptions(screen.getByLabelText('Type for child-a'), 'normal');
 
     expect(
@@ -150,8 +189,10 @@ describe('TreeEditorShell', () => {
     expect(screen.getByLabelText('Type for child-a')).toHaveValue('bernoulli');
   });
 
-  it('updates a bernoulli leaf preview from elicitation input', async () => {
+  it('updates a bernoulli leaf preview from elicitation input', () => {
     render(<TreeEditorShell forecastId="forecast-1" initialTree={editorTree()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select Child A' }));
 
     const probabilityInput = screen.getByLabelText('Probability for child-a');
     fireEvent.change(probabilityInput, { target: { value: '1' } });
@@ -186,6 +227,8 @@ describe('TreeEditorShell', () => {
       const panel = headlinePanel!;
       const initialHeadline = within(panel).getByText(/^\d+\.\d%$/).textContent;
 
+      fireEvent.click(screen.getByRole('button', { name: 'Select Child A' }));
+
       const probabilityInput = screen.getByLabelText('Probability for child-a');
       fireEvent.change(probabilityInput, { target: { value: '1' } });
 
@@ -203,13 +246,23 @@ describe('TreeEditorShell', () => {
     }
   });
 
-  it('renders quantile inputs for numeric leaves and keeps invalid drafts visible', async () => {
+  it('renders quantile inputs for numeric leaves and keeps invalid drafts visible', () => {
     render(<TreeEditorShell forecastId="forecast-1" initialTree={thresholdEditorTree()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select Normal estimate' }));
 
     const p50Input = screen.getByLabelText('P50 for leaf-normal');
     fireEvent.change(p50Input, { target: { value: '' } });
 
     expect(screen.getByDisplayValue('')).toBeInTheDocument();
     expect(screen.getByText('P50 is required')).toBeInTheDocument();
+  });
+
+  it('flags an invalid descendant up the whole ancestor chain', () => {
+    render(<TreeEditorShell forecastId="forecast-1" initialTree={deeplyInvalidTree()} />);
+
+    // Root, Branch, and Bad leaf each carry the issue marker so a buried error
+    // is traceable from the top of the tree.
+    expect(screen.getAllByLabelText('contains an issue')).toHaveLength(3);
   });
 });

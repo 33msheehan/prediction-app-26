@@ -595,6 +595,7 @@ export function TreeEditorShell({ forecastId, initialTree }: TreeEditorShellProp
   const router = useRouter();
   const [tree, setTree] = useState(initialTree);
   const [collapsedIds, setCollapsedIds] = useState<Record<string, boolean>>({});
+  const [selectedId, setSelectedId] = useState(initialTree.root.id);
   const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
   const [newChildTypes, setNewChildTypes] = useState<Record<string, string>>({});
   const [fieldDrafts, setFieldDrafts] = useState<FieldDrafts>({});
@@ -733,17 +734,20 @@ export function TreeEditorShell({ forecastId, initialTree }: TreeEditorShellProp
       return;
     }
 
+    const childId = nextNodeId();
     updateTree(
       addChildNode(
         tree,
         node.id,
         createNode(
           requestedType as LeafNodeType | CompositeNodeType,
-          nextNodeId(),
+          childId,
           `New ${requestedType.replaceAll('_', ' ')}`,
         ),
       ),
     );
+    setCollapsedIds((current) => ({ ...current, [node.id]: false }));
+    setSelectedId(childId);
   }
 
   function handleLeafFieldChange(node: LeafNode, field: string, rawValue: string) {
@@ -1061,74 +1065,264 @@ export function TreeEditorShell({ forecastId, initialTree }: TreeEditorShellProp
     }
   }
 
-  function renderNode(
-    node: TreeNode,
-    parent: TreeNode | null,
-    path: string,
-    depth: number,
-    siblingIndex: number,
-    siblingCount: number,
-  ): React.ReactNode {
-    const expectedOutputType = parent ? getExpectedChildOutputType(parent) : 'boolean';
-    const inlineErrors = validation.errors.filter((error) => pathHasError(path, error.path));
+  function selectNode(nodeId: string) {
+    setSelectedId(nodeId);
+    setBlockedMessage(null);
+  }
+
+  function findContext(nodeId: string): {
+    node: TreeNode;
+    parent: TreeNode | null;
+    path: string;
+    index: number;
+    count: number;
+    ancestors: TreeNode[];
+  } | null {
+    function walk(
+      node: TreeNode,
+      parent: TreeNode | null,
+      path: string,
+      index: number,
+      count: number,
+      ancestors: TreeNode[],
+    ): {
+      node: TreeNode;
+      parent: TreeNode | null;
+      path: string;
+      index: number;
+      count: number;
+      ancestors: TreeNode[];
+    } | null {
+      if (node.id === nodeId) {
+        return { node, parent, path, index, count, ancestors };
+      }
+
+      if (node.kind === 'composite') {
+        for (let childIndex = 0; childIndex < node.children.length; childIndex += 1) {
+          const found = walk(
+            node.children[childIndex],
+            node,
+            `${path}.children[${childIndex}]`,
+            childIndex,
+            node.children.length,
+            [...ancestors, node],
+          );
+          if (found) {
+            return found;
+          }
+        }
+      }
+
+      return null;
+    }
+
+    return walk(tree.root, null, 'root', 0, 1, []);
+  }
+
+  function renderTreeRow(node: TreeNode, path: string): React.ReactNode {
     const collapsed = collapsedIds[node.id] ?? false;
     const outputType = getNodeOutputType(node);
-    const fieldError =
-      Object.entries(fieldErrors).find(([key]) => key.startsWith(`${node.id}:`))?.[1] ?? undefined;
+    const isSelected = selectedId === node.id;
+    const subtreeHasIssue = validation.errors.some((error) => pathHasError(path, error.path));
+    const hasChildren = node.kind === 'composite' && node.children.length > 0;
 
     return (
-      <li key={node.id} className="space-y-3">
+      <li key={node.id}>
         <div
-          className="space-y-3 rounded border border-black/10 bg-white p-4"
-          style={{ marginLeft: `${depth * 20}px` }}
+          className={`flex items-center gap-1.5 rounded-md px-1.5 py-1.5 ${
+            isSelected ? 'bg-black/[0.06]' : 'hover:bg-black/[0.03]'
+          }`}
         >
-          <div className="flex flex-wrap items-center gap-2">
-            {node.kind === 'composite' ? (
-              <button
-                className="rounded border border-black/10 px-2 py-1 text-xs"
-                onClick={() => toggleCollapsed(node.id)}
-                type="button"
+          {hasChildren ? (
+            <button
+              aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${node.label}`}
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-black/40 hover:bg-black/10"
+              onClick={() => toggleCollapsed(node.id)}
+              type="button"
+            >
+              <svg
+                aria-hidden="true"
+                className={`h-3 w-3 transition-transform ${collapsed ? '' : 'rotate-90'}`}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                viewBox="0 0 24 24"
               >
-                {collapsed ? 'Expand' : 'Collapse'}
-              </button>
-            ) : (
-              <span className="rounded border border-transparent px-2 py-1 text-xs text-black/45">
-                Leaf
-              </span>
-            )}
+                <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          ) : (
+            <span className="h-5 w-5 shrink-0" />
+          )}
 
-            <span className={`rounded-full px-2 py-1 text-xs font-medium ${outputTone(outputType)}`}>
-              {outputType}
+          <button
+            aria-label={`Select ${node.label}`}
+            className="flex min-w-0 flex-1 items-center gap-2 text-left"
+            onClick={() => selectNode(node.id)}
+            type="button"
+          >
+            <span
+              className={`truncate text-sm ${isSelected ? 'font-medium' : ''} ${
+                subtreeHasIssue ? 'text-red-700' : ''
+              }`}
+            >
+              {node.label}
             </span>
-            <span className="text-xs text-black/55">{node.kind}</span>
-            <span className="text-xs text-black/40">{node.id}</span>
+            <span className="ml-auto flex shrink-0 items-center gap-1.5">
+              {subtreeHasIssue ? (
+                <span aria-label="contains an issue" className="h-2 w-2 rounded-full bg-red-500" />
+              ) : null}
+              <span className="text-[10px] text-black/40">{node.type.replaceAll('_', ' ')}</span>
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${outputTone(outputType)}`}
+              >
+                {outputType === 'boolean' ? 'bool' : 'num'}
+              </span>
+            </span>
+          </button>
+        </div>
+
+        {hasChildren && !collapsed ? (
+          <ul className="ml-3 space-y-0.5 border-l border-black/10 pl-2">
+            {node.children.map((child, index) =>
+              renderTreeRow(child, `${path}.children[${index}]`),
+            )}
+          </ul>
+        ) : null}
+      </li>
+    );
+  }
+
+  const context =
+    findContext(selectedId) ??
+    ({
+      node: tree.root,
+      parent: null,
+      path: 'root',
+      index: 0,
+      count: 1,
+      ancestors: [] as TreeNode[],
+    } as const);
+  const selectedNode = context.node;
+  const selectedExpectedOutputType = context.parent
+    ? getExpectedChildOutputType(context.parent)
+    : 'boolean';
+  const selectedFieldError =
+    Object.entries(fieldErrors).find(([key]) => key.startsWith(`${selectedNode.id}:`))?.[1] ??
+    undefined;
+  const selectedInlineErrors = validation.errors.filter((error) =>
+    pathHasError(context.path, error.path),
+  );
+
+  return (
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-black/10 bg-white p-4">
+        <div>
+          <p className="text-sm font-medium text-black/70">Live headline</p>
+          {!validation.valid ? (
+            <p className="mt-1 text-sm text-black/60">
+              Fix the highlighted node to re-enable the headline.
+            </p>
+          ) : headlinePending ? (
+            <p className="mt-1 text-sm text-black/60">Recomputing headline…</p>
+          ) : headline.status === 'ready' ? (
+            <div className="mt-1">
+              <p className="text-3xl font-semibold leading-none">
+                {formatPercent(headline.result.p)}
+              </p>
+              <p className="mt-1.5 text-xs text-black/55">
+                SE {formatPercent(headline.result.se)} &middot; 95% CI:{' '}
+                {formatPercent(headline.result.ci95[0])} to {formatPercent(headline.result.ci95[1])}
+              </p>
+            </div>
+          ) : headline.status === 'error' ? (
+            <p className="mt-1 text-sm text-red-700">{headline.message}</p>
+          ) : (
+            <p className="mt-1 text-sm text-black/60">Waiting for the first valid tree.</p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-medium ${
+              validation.valid ? 'bg-emerald-100 text-emerald-900' : 'bg-amber-100 text-amber-900'
+            }`}
+          >
+            {validation.valid
+              ? 'Tree valid'
+              : `${validation.errors.length} issue${validation.errors.length === 1 ? '' : 's'}`}
+          </span>
+          <button
+            className="rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-black/20"
+            disabled={!validation.valid || saveState.status === 'saving'}
+            onClick={handleSave}
+            type="button"
+          >
+            {saveState.status === 'saving' ? 'Saving…' : 'Save version'}
+          </button>
+        </div>
+      </div>
+
+      {saveState.status === 'saved' ? (
+        <p className="text-sm text-emerald-700">Saved version {saveState.versionNo}.</p>
+      ) : null}
+      {saveState.status === 'error' ? (
+        <p className="text-sm text-red-700">{saveState.message}</p>
+      ) : null}
+      {blockedMessage ? (
+        <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          {blockedMessage}
+        </div>
+      ) : null}
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,320px),minmax(0,1fr)]">
+        <div className="rounded-lg border border-black/10 bg-white p-3">
+          <p className="mb-2 px-1.5 text-xs font-medium text-black/55">Structure</p>
+          <ul className="space-y-0.5">{renderTreeRow(tree.root, 'root')}</ul>
+        </div>
+
+        <div className="rounded-lg border border-black/10 bg-white p-4">
+          <div className="flex flex-wrap items-center gap-1 text-xs text-black/45">
+            {context.ancestors.map((ancestor) => (
+              <span className="flex items-center gap-1" key={ancestor.id}>
+                <button
+                  className="hover:text-black/70 hover:underline"
+                  onClick={() => selectNode(ancestor.id)}
+                  type="button"
+                >
+                  {ancestor.label}
+                </button>
+                <span aria-hidden="true">&rsaquo;</span>
+              </span>
+            ))}
+            <span className="font-medium text-black/70">{selectedNode.label}</span>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr),14rem,auto]">
+          <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr),12rem]">
             <label className="space-y-1 text-sm">
               <span className="font-medium">Label</span>
               <input
-                aria-label={`Label for ${node.id}`}
+                aria-label={`Label for ${selectedNode.id}`}
                 className="w-full rounded border border-black/15 px-3 py-2"
-                onChange={(event) => updateTree(renameNode(tree, node.id, event.target.value))}
+                onChange={(event) => updateTree(renameNode(tree, selectedNode.id, event.target.value))}
                 type="text"
-                value={node.label}
+                value={selectedNode.label}
               />
             </label>
 
             <label className="space-y-1 text-sm">
               <span className="font-medium">Type</span>
               <select
-                aria-label={`Type for ${node.id}`}
+                aria-label={`Type for ${selectedNode.id}`}
                 className="w-full rounded border border-black/15 px-3 py-2"
                 onChange={(event) =>
                   handleTypeChange(
-                    node,
+                    selectedNode,
                     event.target.value as LeafNodeType | CompositeNodeType,
-                    expectedOutputType,
+                    selectedExpectedOutputType,
                   )
                 }
-                value={node.type}
+                value={selectedNode.type}
               >
                 <optgroup label="Leaves">
                   {nodeTypeOptions
@@ -1150,197 +1344,113 @@ export function TreeEditorShell({ forecastId, initialTree }: TreeEditorShellProp
                 </optgroup>
               </select>
             </label>
-
-            <div className="flex flex-wrap items-end gap-2">
-              <button
-                className="rounded border border-black/15 px-3 py-2 text-sm"
-                disabled={siblingIndex === 0 || parent === null}
-                onClick={() => updateTree(moveNode(tree, node.id, 'up'))}
-                type="button"
-              >
-                Move up
-              </button>
-              <button
-                className="rounded border border-black/15 px-3 py-2 text-sm"
-                disabled={siblingIndex === siblingCount - 1 || parent === null}
-                onClick={() => updateTree(moveNode(tree, node.id, 'down'))}
-                type="button"
-              >
-                Move down
-              </button>
-              <button
-                className="rounded border border-red-200 px-3 py-2 text-sm text-red-700"
-                disabled={parent === null}
-                onClick={() => updateTree(deleteNode(tree, node.id))}
-                type="button"
-              >
-                Delete
-              </button>
-            </div>
           </div>
 
-          {node.kind === 'leaf' ? (
-            <LeafNodeEditor
-              error={fieldError}
-              getDraftValue={getDraftValue}
-              node={node}
-              onBetaModeChange={handleBetaModeChange}
-              onFieldChange={handleLeafFieldChange}
-            />
-          ) : (
-            <CompositeNodeEditor
-              error={fieldError}
-              getDraftValue={getDraftValue}
-              node={node}
-              onFieldChange={handleCompositeFieldChange}
-              onThresholdOperatorChange={handleThresholdOperatorChange}
-            />
-          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              className="rounded border border-black/15 px-3 py-1.5 text-sm disabled:opacity-40"
+              disabled={context.parent === null || context.index === 0}
+              onClick={() => updateTree(moveNode(tree, selectedNode.id, 'up'))}
+              type="button"
+            >
+              Move up
+            </button>
+            <button
+              className="rounded border border-black/15 px-3 py-1.5 text-sm disabled:opacity-40"
+              disabled={context.parent === null || context.index === context.count - 1}
+              onClick={() => updateTree(moveNode(tree, selectedNode.id, 'down'))}
+              type="button"
+            >
+              Move down
+            </button>
+            <button
+              className="rounded border border-red-200 px-3 py-1.5 text-sm text-red-700 disabled:opacity-40"
+              disabled={context.parent === null}
+              onClick={() => {
+                if (!context.parent) {
+                  return;
+                }
+                const parentId = context.parent.id;
+                updateTree(deleteNode(tree, selectedNode.id));
+                setSelectedId(parentId);
+              }}
+              type="button"
+            >
+              Delete
+            </button>
+          </div>
 
-          {node.kind === 'composite' ? (
-            <div className="rounded border border-dashed border-black/10 p-3">
-              <div className="flex flex-wrap items-end gap-3">
-                <label className="space-y-1 text-sm">
-                  <span className="font-medium">Add child</span>
-                  <select
-                    aria-label={`Child type for ${node.id}`}
-                    className="rounded border border-black/15 px-3 py-2"
-                    onChange={(event) =>
-                      setNewChildTypes((current) => ({ ...current, [node.id]: event.target.value }))
-                    }
-                    value={newChildTypes[node.id] ?? 'bernoulli'}
-                  >
-                    {nodeTypeOptions.map((option) => {
-                      const disabled =
-                        getExpectedChildOutputType(node) !== null &&
-                        !canUseNodeType(option.type, getExpectedChildOutputType(node));
+          <div className="mt-4">
+            {selectedNode.kind === 'leaf' ? (
+              <LeafNodeEditor
+                error={selectedFieldError}
+                getDraftValue={getDraftValue}
+                node={selectedNode}
+                onBetaModeChange={handleBetaModeChange}
+                onFieldChange={handleLeafFieldChange}
+              />
+            ) : (
+              <CompositeNodeEditor
+                error={selectedFieldError}
+                getDraftValue={getDraftValue}
+                node={selectedNode}
+                onFieldChange={handleCompositeFieldChange}
+                onThresholdOperatorChange={handleThresholdOperatorChange}
+              />
+            )}
+          </div>
 
-                      return (
-                        <option disabled={disabled} key={option.type} value={option.type}>
-                          {option.label}
-                          {disabled ? ' (wrong output type)' : ''}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </label>
-
-                <button
-                  className="rounded bg-black px-3 py-2 text-sm font-medium text-white"
-                  onClick={() => handleAddChild(node)}
-                  type="button"
+          {selectedNode.kind === 'composite' ? (
+            <div className="mt-3 flex flex-wrap items-end gap-3 rounded border border-dashed border-black/10 p-3">
+              <label className="space-y-1 text-sm">
+                <span className="font-medium">Add child</span>
+                <select
+                  aria-label={`Child type for ${selectedNode.id}`}
+                  className="rounded border border-black/15 px-3 py-2"
+                  onChange={(event) =>
+                    setNewChildTypes((current) => ({
+                      ...current,
+                      [selectedNode.id]: event.target.value,
+                    }))
+                  }
+                  value={newChildTypes[selectedNode.id] ?? 'bernoulli'}
                 >
-                  Add child
-                </button>
-              </div>
+                  {nodeTypeOptions.map((option) => {
+                    const expected = getExpectedChildOutputType(selectedNode);
+                    const disabled = expected !== null && !canUseNodeType(option.type, expected);
+
+                    return (
+                      <option disabled={disabled} key={option.type} value={option.type}>
+                        {option.label}
+                        {disabled ? ' (wrong output type)' : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+
+              <button
+                className="rounded bg-black px-3 py-2 text-sm font-medium text-white"
+                onClick={() => handleAddChild(selectedNode)}
+                type="button"
+              >
+                Add child
+              </button>
             </div>
           ) : null}
 
-          {inlineErrors.length > 0 ? (
-            <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          {selectedInlineErrors.length > 0 ? (
+            <div className="mt-3 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
               <p className="font-medium">Validation</p>
               <ul className="mt-2 list-disc space-y-1 pl-5">
-                {inlineErrors.map((error) => (
-                  <li key={`${error.path}-${error.message}`}>
-                    <span className="font-mono text-xs">{error.path}</span>: {error.message}
-                  </li>
+                {selectedInlineErrors.map((error) => (
+                  <li key={`${error.path}-${error.message}`}>{error.message}</li>
                 ))}
               </ul>
             </div>
           ) : null}
         </div>
-
-        {node.kind === 'composite' && !collapsed && node.children.length > 0 ? (
-          <ul className="space-y-3">
-            {node.children.map((child, index) =>
-              renderNode(
-                child,
-                node,
-                `${path}.children[${index}]`,
-                depth + 1,
-                index,
-                node.children.length,
-              ),
-            )}
-          </ul>
-        ) : null}
-      </li>
-    );
-  }
-
-  return (
-    <section className="space-y-4">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr),20rem]">
-        <div className="rounded border border-black/10 p-4">
-          <h2 className="text-lg font-semibold">Tree editor</h2>
-          <p className="mt-2 text-sm text-black/65">
-            Build the outline, configure leaf distributions, tune combinators, and watch the
-            headline refresh before you save a new immutable version.
-          </p>
-        </div>
-
-        <div className="rounded border border-black/10 p-4">
-          <p className="text-sm font-medium text-black/70">Live headline</p>
-          {!validation.valid ? (
-            <p className="mt-3 text-sm text-black/60">
-              Fix the invalid tree wiring below to re-enable the headline preview.
-            </p>
-          ) : headlinePending ? (
-            <p className="mt-3 text-sm text-black/60">Recomputing headline…</p>
-          ) : headline.status === 'ready' ? (
-            <div className="mt-3 space-y-2 text-sm">
-              <p className="text-3xl font-semibold">{formatPercent(headline.result.p)}</p>
-              <p>SE: {formatPercent(headline.result.se)}</p>
-              <p>
-                95% CI: {formatPercent(headline.result.ci95[0])} to{' '}
-                {formatPercent(headline.result.ci95[1])}
-              </p>
-            </div>
-          ) : headline.status === 'error' ? (
-            <p className="mt-3 text-sm text-red-700">{headline.message}</p>
-          ) : (
-            <p className="mt-3 text-sm text-black/60">Waiting for the first valid tree.</p>
-          )}
-
-          <button
-            className="mt-4 w-full rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-black/20"
-            disabled={!validation.valid || saveState.status === 'saving'}
-            onClick={handleSave}
-            type="button"
-          >
-            {saveState.status === 'saving' ? 'Saving…' : 'Save version'}
-          </button>
-
-          {saveState.status === 'saved' ? (
-            <p className="mt-2 text-sm text-emerald-700">Saved version {saveState.versionNo}.</p>
-          ) : null}
-          {saveState.status === 'error' ? (
-            <p className="mt-2 text-sm text-red-700">{saveState.message}</p>
-          ) : null}
-        </div>
       </div>
-
-      {blockedMessage ? (
-        <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          {blockedMessage}
-        </div>
-      ) : null}
-
-      {!validation.valid ? (
-        <div className="rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <p className="font-medium">Tree needs attention</p>
-          <p className="mt-1">
-            Invalid wiring and arity problems show up inline below so you can repair them before
-            saving.
-          </p>
-        </div>
-      ) : (
-        <div className="rounded border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-          Tree is currently valid.
-        </div>
-      )}
-
-      <ul className="space-y-3">{renderNode(tree.root, null, 'root', 0, 0, 1)}</ul>
     </section>
   );
 }
