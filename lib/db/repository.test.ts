@@ -3,9 +3,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   appendVersion,
   createForecast,
+  createForecastWithInitialVersion,
   ForecastNotFoundError,
   getForecast,
+  getForecastWithCurrentVersion,
   listForecasts,
+  listForecastSummaries,
   resolveForecast,
   TreeValidationFailedError,
 } from './repository';
@@ -31,7 +34,7 @@ describe.skipIf(skip)('forecast repository', () => {
     await deleteTestUsers(createdUserIds.splice(0));
   });
 
-  it('creates a forecast scoped to the user and lists only that user\'s forecasts', async () => {
+  it("creates a forecast scoped to the user and lists only that user's forecasts", async () => {
     const owner = await createTestUser('t1.3');
     const other = await createTestUser('t1.3');
     createdUserIds.push(owner.id, other.id);
@@ -118,6 +121,48 @@ describe.skipIf(skip)('forecast repository', () => {
     ).rejects.toThrow(TreeValidationFailedError);
   });
 
+  it('createForecastWithInitialVersion creates a version immediately and exposes it on reload', async () => {
+    const owner = await createTestUser('t3.1');
+    createdUserIds.push(owner.id);
+
+    const { forecast, version } = await createForecastWithInitialVersion(owner.id, {
+      title: 'Immediate editor state',
+      description: 'Starts with an initial version',
+      cadence: { kind: 'interval', intervalDays: 14 },
+    });
+
+    expect(forecast.currentVersionId).toBe(version.id);
+    expect(version.source).toBe('initial');
+    expect(version.versionNo).toBe(1);
+
+    const reloaded = await getForecastWithCurrentVersion(owner.id, forecast.id);
+    expect(reloaded?.currentVersionId).toBe(version.id);
+    expect(reloaded?.currentTree).toBeTruthy();
+    expect(reloaded?.headlineP).toBeGreaterThan(0);
+    expect(reloaded?.headlineP).toBeLessThan(1);
+  });
+
+  it('listForecastSummaries only returns the current user rows', async () => {
+    const owner = await createTestUser('t3.2');
+    const other = await createTestUser('t3.2');
+    createdUserIds.push(owner.id, other.id);
+
+    const { forecast } = await createForecastWithInitialVersion(owner.id, {
+      title: 'Owner dashboard item',
+      cadence: { kind: 'dates', dates: ['2026-07-01'] },
+    });
+    await createForecastWithInitialVersion(other.id, {
+      title: 'Other dashboard item',
+      cadence: { kind: 'none' },
+    });
+
+    const list = await listForecastSummaries(owner.id);
+    expect(list).toHaveLength(1);
+    expect(list[0]?.id).toBe(forecast.id);
+    expect(list[0]?.headlineP).toBeGreaterThan(0);
+    expect(list[0]?.currentVersionCreatedAt).toBeTruthy();
+  });
+
   it('resolveForecast records the outcome and is scoped to the owning user', async () => {
     const owner = await createTestUser('t1.3');
     const other = await createTestUser('t1.3');
@@ -128,9 +173,9 @@ describe.skipIf(skip)('forecast repository', () => {
       cadence: { kind: 'none' },
     });
 
-    await expect(
-      resolveForecast(other.id, forecast.id, { outcome: true }),
-    ).rejects.toThrow(ForecastNotFoundError);
+    await expect(resolveForecast(other.id, forecast.id, { outcome: true })).rejects.toThrow(
+      ForecastNotFoundError,
+    );
 
     const resolved = await resolveForecast(owner.id, forecast.id, {
       outcome: true,

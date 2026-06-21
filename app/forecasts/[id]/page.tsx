@@ -1,12 +1,60 @@
-export default async function ForecastPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+import { notFound, redirect } from 'next/navigation';
+import { getCurrentUser } from '@/lib/auth/session';
+import { getForecastWithCurrentVersion } from '@/lib/db/repository';
+
+export default async function ForecastPage({ params }: { params: Promise<{ id: string }> }) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect('/api/auth/signin');
+  }
+
   const { id } = await params;
+  const forecast = await getForecastWithCurrentVersion(user.id, id);
+
+  if (!forecast) {
+    notFound();
+  }
+
   return (
-    <main className="flex-1 p-6">
-      <h1 className="text-2xl font-semibold">Forecast {id}</h1>
+    <main className="flex-1 px-6 py-8">
+      <div className="mx-auto max-w-4xl space-y-6">
+        <div>
+          <p className="text-sm tracking-wide text-black/50 uppercase">Forecast editor</p>
+          <h1 className="mt-2 text-3xl font-semibold">{forecast.title}</h1>
+          {forecast.description ? (
+            <p className="mt-2 max-w-3xl text-sm text-black/70">{forecast.description}</p>
+          ) : null}
+        </div>
+
+        <section className="grid gap-4 md:grid-cols-3">
+          <div className="rounded border border-black/10 p-4">
+            <p className="text-sm text-black/60">Headline</p>
+            <p className="mt-2 text-2xl font-semibold">
+              {forecast.headlineP === null
+                ? 'No headline yet'
+                : `${Math.round(forecast.headlineP * 100)}%`}
+            </p>
+          </div>
+          <div className="rounded border border-black/10 p-4">
+            <p className="text-sm text-black/60">Status</p>
+            <p className="mt-2 text-2xl font-semibold capitalize">{forecast.status}</p>
+          </div>
+          <div className="rounded border border-black/10 p-4">
+            <p className="text-sm text-black/60">Current version</p>
+            <p className="mt-2 text-2xl font-semibold">
+              {forecast.currentVersionId ? 'Loaded' : 'Missing'}
+            </p>
+          </div>
+        </section>
+
+        <section className="rounded border border-dashed border-black/15 p-6">
+          <h2 className="text-lg font-semibold">Editor shell</h2>
+          <p className="mt-2 text-sm text-black/65">
+            The tree outline and live probability headline land in the next Phase 3 tickets. This
+            page now loads the current forecast and its latest saved version.
+          </p>
+        </section>
+      </div>
     </main>
   );
 }
