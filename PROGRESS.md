@@ -18,6 +18,7 @@ remains the formal dashboard.
 | T2.4 | Done | current session | codex/t2.4-tree-schema | Added canonical tree types, recursive Zod schema, output-type helper, and traversal utilities in `lib/engine/tree.ts`. |
 | T2.5 | Done | current session | codex/t2.5-combinators | Added composite evaluation helpers in `lib/engine/combinators.ts` with truth-table, arithmetic, and invalid-input tests. |
 | T2.6 | Done | current session | codex/t2.6-tree-validation | Added `validateTree()` in `lib/engine/validate.ts` with path-based, human-readable errors for root type, arity, child typing, and param ranges. |
+| T2.7 | Done | current session | codex/t2.7-runner | Added `runForecast()` in `lib/engine/runner.ts` with deterministic Monte Carlo evaluation, CI/SE aggregation, and optional numeric node summaries. |
 
 ## Coordination rules
 
@@ -63,6 +64,9 @@ remains the formal dashboard.
 - 2026-06-21: Created `codex/t2.6-tree-validation` and completed T2.6 with
   `validateTree()` in `lib/engine/validate.ts`. Engine tests now pass with
   62 tests across 7 files; `npm run typecheck` exits 0.
+- 2026-06-21: Created `codex/t2.7-runner` and completed T2.7 with
+  `runForecast()` in `lib/engine/runner.ts`. Engine tests now pass with
+  71 tests across 8 files; `npm run typecheck` exits 0.
 - 2026-06-21: T0.3 fully closed — user supplied a Neon API token, used it to
   create and tear down a real ephemeral branch, confirmed `db:migrate` is
   idempotent against it. Token stored only in gitignored `.env.local`
