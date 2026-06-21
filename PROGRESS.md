@@ -43,6 +43,7 @@ blank for false.
 | T2.8   | x       | x                     |                | Added runner trial/node guardrails and a representative default-run benchmark in `lib/engine/runner.ts`.                                                                                                                                                                                                                                                                                                 |
 | T3.1   | x       |                       |                | Combined with T3.2 on the current branch. Added a server-side create flow for binary forecasts with cadence metadata, an immediate `source:'initial'` version, dashboard revalidation, and redirect into `/forecasts/[id]`. Form/validation/unit/build coverage is green locally; the new DB integration tests are written but not marked green because sourcing `.env.local` in this shell hit a live DB insert failure before the test body could run. |
 | T3.2   | x       |                       |                | Combined with T3.1 on the current branch. Dashboard now lists only the signed-in user's forecasts, shows latest headline probability, links into the forecast, and computes a due-for-review badge from cadence plus latest-version time. Cadence unit tests and RTL list coverage are green locally; DB-backed list isolation tests are written alongside T3.1's integration coverage but currently blocked by the same live DB insert failure in this shell. |
+| T3.3   | x       | x                     |                | Added a client-side tree editor shell on `/forecasts/[id]`: nested outline, rename/delete/reorder controls, node-type conversion (including root staying boolean), add-child type picker, expand/collapse, and live inline `validateTree()` feedback. Component tests cover rename/add/delete/move plus invalid type-change rejection; lint, typecheck, and `next build` are green locally. |
 
 Tickets not listed above (T1.2 onward, all of Phases 3–8) are not started —
 omit a row until work begins.
@@ -78,17 +79,19 @@ above.
 Phases 0, 1, and 2 are complete. Phase 1 is now marked passed after the user
 confirmed two independent LLM reviews on top of the earlier T1.1 human
 verification and DB-backed test coverage. Phase 3 is underway: T3.1/T3.2 are
-being landed together as the first forecast CRUD slice, with the create flow,
-initial version creation, and signed-in dashboard list implemented and local
-unit/RTL/typecheck/build checks green.
+implemented as the first forecast CRUD slice, and T3.3 now layers the tree
+editor shell on top: local outline editing, type conversion, add/delete/move,
+expand/collapse, and inline tree validation. Local unit/RTL/typecheck/build
+checks are green for the editor work.
 
 ### Next steps
 
 1. Clear the live DB harness issue that currently prevents the new T3
    repository integration tests from running in this shell, then mark T3.1/T3.2
    test coverage fully green.
-2. Continue Phase 3 with the editor shell (T3.3), which now has a persisted
-   forecast/create path and dashboard entry points to build on.
+2. Continue Phase 3 with T3.4/T3.5, wiring leaf/composite-specific editors
+   into the new shell so structure edits can also configure distributions and
+   combinator settings.
 
 ## Coordination rules
 
@@ -324,3 +327,8 @@ unit/RTL/typecheck/build checks green.
 - 2026-06-21: Pulled `origin/main` into the current branch per user request
   and updated Phase 1's review gate from `pending` to `passed` based on the
   user's confirmation that two independent LLM reviews had been completed.
+- 2026-06-21: Completed T3.3 on `codex/t3.3-tree-editor-shell`. Added a
+  client `TreeEditorShell` to `/forecasts/[id]` with nested outline editing,
+  rename/delete/reorder controls, node-type conversion, add-child type
+  selection, expand/collapse, and inline `validateTree()` feedback. Verified
+  with 5 new RTL/user-event tests plus lint, typecheck, and `next build`.
