@@ -51,7 +51,7 @@ jobs:
       - name: Run tests against ephemeral database
         run: npm test
         env:
-          POSTGRES_URL: ${{ steps.create-neon-branch.outputs.db_url }}
+          POSTGRES_URL: ${{ steps.create-neon-branch.outputs.db_url_pooled }}
 
       - run: npm run build
 
