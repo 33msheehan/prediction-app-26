@@ -34,3 +34,14 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Database setup (T0.2)
+
+This project uses Vercel Postgres (Neon-backed). To connect a database:
+
+1. Run `npx vercel login` and `npx vercel link` to connect this folder to a Vercel project.
+2. In the Vercel dashboard, add a Postgres (Neon) store to the project under Storage.
+3. Run `npx vercel env pull .env.local` to pull the generated `POSTGRES_URL` (and related vars) into `.env.local` — see [`.env.example`](.env.example) for the full list.
+4. `GET /api/health` ([app/api/health/route.ts](app/api/health/route.ts)) runs a trivial `SELECT 1` and returns `{ ok: true, db: 'connected' }` once `POSTGRES_URL` is set.
+
+The integration test in [app/api/health/route.test.ts](app/api/health/route.test.ts) skips automatically when `POSTGRES_URL` is unset, and runs for real once it is — including in CI against a Neon branch (T0.3).
