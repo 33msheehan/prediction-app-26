@@ -55,3 +55,9 @@ The integration test in [app/api/health/route.test.ts](app/api/health/route.test
 - `npm run db:studio` — browse the database with Drizzle Studio.
 
 [lib/db/migrations.test.ts](lib/db/migrations.test.ts) asserts the migration history is exactly what's expected after `db:migrate` runs; like the health check test, it skips without `POSTGRES_URL`.
+
+## CI (T0.4)
+
+[.github/workflows/ci.yml](.github/workflows/ci.yml) runs on every pull request and push to `main`: `npm ci`, then `lint`, `typecheck`, `test`, and `build` in sequence — any failing step fails the job. `test:e2e` (Playwright) runs separately on a daily schedule and via manual dispatch, since it needs a running dev server and browser binaries.
+
+To gate merges on this, the repo needs **branch protection** requiring the `build-and-test` check to pass before merging — set that up once this is pushed to GitHub (Settings → Branches → Branch protection rules).
