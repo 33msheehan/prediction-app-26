@@ -32,6 +32,7 @@ blank for false.
 | T1.1   | x       | x                     |                | Auth.js v5 wired with GitHub OAuth (`auth.ts`), JWT session strategy (no DB adapter — upserts into our own `users` table by email on first sign-in via the `jwt` callback), `getCurrentUser()` in `lib/auth/session.ts`. Route protection lives in `proxy.ts` (this Next.js version renamed `middleware.ts` to `proxy.ts`), with the redirect/401 decision logic factored into `lib/auth/route-guard.ts` for unit testing without a real JWT. `AuthButton` added to the layout for sign-in/out. 11 new tests pass; `next build` confirms the Proxy registers. **Not yet human-verified**: needs a GitHub OAuth App (client id/secret) and `AUTH_SECRET` in `.env.local`/Vercel — `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `AUTH_SECRET` are still empty.                                                                                                                                                                                                                                                                 |
 | T1.2   | x       | x                     |                | Drizzle tables for `users`, `forecasts`, `forecast_versions` per BUILD_PLAN §5, including the circular `forecasts.currentVersionId` ↔ `forecast_versions.forecastId` FK (resolved via Drizzle's lazy `.references()` callback). Migration `0001_smiling_marvel_boy.sql` generated and applied to the real provisioned Neon DB (re-ran `db:migrate` to confirm idempotency). 3 new integration tests (insert chain + reload, FK violation, versionNo uniqueness) pass against the real DB; updated `migrations.test.ts`'s row-count assertion to read the journal length instead of a hardcoded `1`.                                                                                                                                                                                                                                                                 |
 | T1.3   | x       | x                     |                | Repository functions in `lib/db/repository.ts` (`createForecast`, `getForecast`, `listForecasts`, `appendVersion`, `resolveForecast`), all scoped by `userId` (ownership checked via `getForecast` before any mutation; throws `ForecastNotFoundError` rather than leaking another user's row). Reuses T2.4's `TreeSchema` + the runner's internal `validateTree()` call for tree validation (wrapped as `TreeValidationFailedError`); added `lib/validation/forecast.ts` for the forecast-metadata Zod schema (title, cadence). 13 new tests (6 DB-integration ownership/CRUD tests, 7 cadence-schema unit tests) pass against the real DB.                                                                                                                                                                                                                                                                 |
+| T1.4   | x       | x                     |                | `lib/db/seed.ts` exports an idempotent `seedDemoData()` (demo user + one small bernoulli-leaf forecast + initial version, via T1.3's repository functions); `scripts/seed.ts` is the `npm run seed` CLI wrapper. Ran it twice manually against the real Neon DB — second run returns the same user/forecast ids, no duplicates. Factored the inline test user create/cleanup duplicated across `schema.test.ts` and `repository.test.ts` into shared `lib/db/test-helpers.ts` (`createTestUser`/`deleteTestUsers`) per the ticket's "test-DB setup/teardown helpers" requirement, and refactored both files to use it. Added `lib/db/seed.test.ts` as the harness self-test (seed twice → query → assert one user, one forecast with `currentVersionId` set, one version with `headlineP` in `[0,1]`).                                                                                                                                                                                                                                                                 |
 | T2.1   | x       | x                     |                | Added deterministic seedable RNG helpers in `lib/engine/rng.ts` with tests.                                                                                                                                                                                                                                                                                                                              |
 | T2.2   | x       | x                     |                | Added distribution samplers in `lib/engine/distributions.ts` with validation and statistical tests.                                                                                                                                                                                                                                                                                                      |
 | T2.3   | x       | x                     |                | Added elicitation-to-param fitters in `lib/engine/fitters.ts` with empirical round-trip and invalid-input tests.                                                                                                                                                                                                                                                                                         |
@@ -55,7 +56,7 @@ Review status vocabulary: `not_ready`, `pending`, `in_review`,
 | Phase   | Review status | Reviewer | Reviewed at | Notes                                                                                                                                                                                                                                                                              |
 | ------- | ------------- | -------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Phase 0 | passed        | Codex    | 2026-06-21  | Codex's independent review passed T0.1, T0.2, T0.4, T0.5 and returned T0.3 to changes requested solely because the required ephemeral-Neon migration CI step was absent. That step has since been implemented and fixed (see T0.3 above); remote CI is green. Phase 0 is complete. |
-| Phase 1 | not_ready     |          |             | T1.1–T1.3 done (tests green against the real Neon DB). T1.4 (seed & DB test harness) not started yet, and T1.1 is not human-verified (GitHub OAuth App + `AUTH_SECRET` still needed) — phase isn't ready for review until both close.                                                                                                                                                                    |
+| Phase 1 | not_ready     |          |             | All four tickets (T1.1–T1.4) done, tests green against the real Neon DB. Only T1.1's human-verification step remains (GitHub OAuth App + `AUTH_SECRET`) before this phase is ready for independent review by an agent who didn't implement T1.1–T1.4 — flagging it `not_ready` rather than `pending` until that's confirmed.                                                                                                                                                                    |
 | Phase 2 | passed        | Claude   | 2026-06-21  | Independently reviewed T2.1–T2.8 (implemented by Codex) against `BUILD_PLAN.md` §4: read all 8 `lib/engine` source files, verified all 9 leaf distributions, all 7 combinators, all 5 `validateTree()` rules, and the runner's analytic anchors. Found and fixed two issues on `codex/phase-2-independent-review`: (1) the triangular/PERT schema allowed `min === max` while the elicitation fitter rejected it — schema now requires `min < max`; (2) `validateTree()` had no duplicate-node-id check, which the data model relies on for per-node history reconstruction — added `validateUniqueIds()`. Added 3 regression tests. Reran lint, typecheck, full suite (78 passed, 2 skipped), and `next build` — all clean. |
 | Phase 3 | not_ready     |          |             |                                                                                                                                                                                                                                                                                    |
 | Phase 4 | not_ready     |          |             |                                                                                                                                                                                                                                                                                    |
@@ -79,22 +80,24 @@ requires). Phase 2 (probabilistic core) passed independent review by Claude:
 a schema/fitter inconsistency on degenerate triangular/PERT params and a
 missing duplicate-node-id check in `validateTree()` were found and fixed,
 with 3 new regression tests (78 tests total, lint/typecheck/build all clean).
-T1.1–T1.3 (auth, schema/migrations, data-access layer) are implemented and
-tested against the real provisioned Neon DB: GitHub OAuth via Auth.js v5
-(JWT sessions, no DB adapter — we upsert into our own `users` table instead
-of adding Auth.js's account/session tables), the `users`/`forecasts`/
-`forecast_versions` schema with the circular current-version FK, and a
-`userId`-scoped repository layer reusing the Phase 2 engine's tree schema
-and validator. 107 tests pass, lint/typecheck/build all clean.
+All of Phase 1 (T1.1–T1.4: auth, schema/migrations, data-access layer, seed
+& test harness) is implemented and tested against the real provisioned
+Neon DB: GitHub OAuth via Auth.js v5 (JWT sessions, no DB adapter — we
+upsert into our own `users` table instead of adding Auth.js's account/
+session tables), the `users`/`forecasts`/`forecast_versions` schema with
+the circular current-version FK, a `userId`-scoped repository layer
+reusing the Phase 2 engine's tree schema and validator, and an idempotent
+seed script + shared test-DB helpers. 108 tests pass, lint/typecheck/build
+all clean.
 
 ### Next steps
 
 1. T1.1 needs the user to create a GitHub OAuth App and set
    `AUTH_GITHUB_ID`/`AUTH_GITHUB_SECRET`/`AUTH_SECRET` before it's
-   human-verified.
-2. T1.4 (seed & DB test harness) is the remaining Phase 1 ticket.
-3. Once T1.4 lands and T1.1 is human-verified, Phase 1 is ready for
-   independent review (by an agent who didn't implement T1.1–T1.3).
+   human-verified — this is the only thing blocking Phase 1 review.
+2. Once that's done, Phase 1 is ready for independent review (by an agent
+   who didn't implement T1.1–T1.4) — left open on PR #5 for Codex per the
+   user's request.
 
 ## Coordination rules
 
@@ -272,3 +275,20 @@ and validator. 107 tests pass, lint/typecheck/build all clean.
     lib/db/repository.test.ts run as real integration tests against the
     live Neon DB, like the existing T0.3 pattern), `npm run lint`,
     `npm run typecheck`, and `npm run build` all clean.
+- 2026-06-21: Added T1.4 to the same PR/branch (user asked to fold it into
+  the Phase 1 batch, then leave the PR open for Codex to review rather than
+  merging). `lib/db/seed.ts` exports `seedDemoData()` — idempotent (checks
+  for an existing demo user by email and an existing demo forecast by title
+  before creating either), built on T1.3's repository functions so it
+  exercises the same code path the app will use. `scripts/seed.ts` is the
+  `npm run seed` CLI wrapper; ran it twice manually against the real Neon DB
+  and confirmed the second run returned the same user/forecast ids (no
+  duplicates). Pulled the inline test-user create/cleanup logic that had
+  been duplicated across `schema.test.ts` and `repository.test.ts` into
+  `lib/db/test-helpers.ts` (`createTestUser`/`deleteTestUsers`), satisfying
+  the ticket's "test-DB setup/teardown helpers" requirement, and refactored
+  both files to use it instead. Added `lib/db/seed.test.ts` as the harness
+  self-test. Full suite now 108 tests, all passing against the live DB;
+  lint/typecheck/build all still clean. Left PR #5 open (not merged) per
+  the user's request, for Codex's independent Phase 1 review once T1.1 is
+  human-verified.

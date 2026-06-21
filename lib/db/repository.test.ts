@@ -1,7 +1,5 @@
 // @vitest-environment node
-import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it } from 'vitest';
-import { db } from './client';
 import {
   appendVersion,
   createForecast,
@@ -11,7 +9,7 @@ import {
   resolveForecast,
   TreeValidationFailedError,
 } from './repository';
-import { users } from './schema';
+import { createTestUser, deleteTestUsers } from './test-helpers';
 
 const skip = !process.env.POSTGRES_URL;
 
@@ -26,26 +24,16 @@ const validTree = {
   },
 };
 
-async function createTestUser() {
-  const [user] = await db
-    .insert(users)
-    .values({ email: `t1.3-${crypto.randomUUID()}@example.com` })
-    .returning();
-  return user;
-}
-
 describe.skipIf(skip)('forecast repository', () => {
   const createdUserIds: string[] = [];
 
   afterEach(async () => {
-    for (const id of createdUserIds.splice(0)) {
-      await db.delete(users).where(eq(users.id, id));
-    }
+    await deleteTestUsers(createdUserIds.splice(0));
   });
 
   it('creates a forecast scoped to the user and lists only that user\'s forecasts', async () => {
-    const owner = await createTestUser();
-    const other = await createTestUser();
+    const owner = await createTestUser('t1.3');
+    const other = await createTestUser('t1.3');
     createdUserIds.push(owner.id, other.id);
 
     const forecast = await createForecast(owner.id, {
@@ -62,8 +50,8 @@ describe.skipIf(skip)('forecast repository', () => {
   });
 
   it("getForecast returns null for another user's forecast (no cross-user leakage)", async () => {
-    const owner = await createTestUser();
-    const other = await createTestUser();
+    const owner = await createTestUser('t1.3');
+    const other = await createTestUser('t1.3');
     createdUserIds.push(owner.id, other.id);
 
     const forecast = await createForecast(owner.id, {
@@ -76,8 +64,8 @@ describe.skipIf(skip)('forecast repository', () => {
   });
 
   it("appendVersion rejects appending to another user's forecast", async () => {
-    const owner = await createTestUser();
-    const other = await createTestUser();
+    const owner = await createTestUser('t1.3');
+    const other = await createTestUser('t1.3');
     createdUserIds.push(owner.id, other.id);
 
     const forecast = await createForecast(owner.id, {
@@ -91,7 +79,7 @@ describe.skipIf(skip)('forecast repository', () => {
   });
 
   it('appendVersion persists a version with the computed headline and bumps currentVersionId', async () => {
-    const owner = await createTestUser();
+    const owner = await createTestUser('t1.3');
     createdUserIds.push(owner.id);
 
     const forecast = await createForecast(owner.id, {
@@ -114,7 +102,7 @@ describe.skipIf(skip)('forecast repository', () => {
   });
 
   it('appendVersion rejects a malformed tree without persisting anything', async () => {
-    const owner = await createTestUser();
+    const owner = await createTestUser('t1.3');
     createdUserIds.push(owner.id);
 
     const forecast = await createForecast(owner.id, {
@@ -131,8 +119,8 @@ describe.skipIf(skip)('forecast repository', () => {
   });
 
   it('resolveForecast records the outcome and is scoped to the owning user', async () => {
-    const owner = await createTestUser();
-    const other = await createTestUser();
+    const owner = await createTestUser('t1.3');
+    const other = await createTestUser('t1.3');
     createdUserIds.push(owner.id, other.id);
 
     const forecast = await createForecast(owner.id, {

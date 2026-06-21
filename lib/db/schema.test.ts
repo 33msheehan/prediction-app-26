@@ -2,7 +2,8 @@
 import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it } from 'vitest';
 import { db } from './client';
-import { forecasts, forecastVersions, users } from './schema';
+import { forecasts, forecastVersions } from './schema';
+import { createTestUser, deleteTestUsers } from './test-helpers';
 
 // Real integration tests against Postgres — needs POSTGRES_URL (set once
 // T0.2's Vercel/Neon provisioning is done, and the T1.2 migration applied).
@@ -13,16 +14,11 @@ describe.skipIf(skip)('forecasts schema', () => {
   const createdUserIds: string[] = [];
 
   afterEach(async () => {
-    for (const id of createdUserIds.splice(0)) {
-      await db.delete(users).where(eq(users.id, id));
-    }
+    await deleteTestUsers(createdUserIds.splice(0));
   });
 
   it('inserts user -> forecast -> version and reads them back', async () => {
-    const [user] = await db
-      .insert(users)
-      .values({ email: `t1.2-${crypto.randomUUID()}@example.com` })
-      .returning();
+    const user = await createTestUser('t1.2');
     createdUserIds.push(user.id);
 
     const [forecast] = await db
@@ -60,10 +56,7 @@ describe.skipIf(skip)('forecasts schema', () => {
   });
 
   it('enforces versionNo uniqueness per forecast', async () => {
-    const [user] = await db
-      .insert(users)
-      .values({ email: `t1.2-${crypto.randomUUID()}@example.com` })
-      .returning();
+    const user = await createTestUser('t1.2');
     createdUserIds.push(user.id);
 
     const [forecast] = await db
