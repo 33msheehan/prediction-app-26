@@ -130,10 +130,10 @@ const LAST_UPDATED = "2026-06-21";
 
 // Edit this alongside ticket status changes — keep it short (2-4 sentences + 3-5 next steps).
 const SUMMARY = {
-  where: "T0.1 and T0.2 done. Vercel project linked, Postgres (Neon) provisioned, POSTGRES_URL pulled into .env.local — /api/health verified live (200, { ok: true, db: 'connected' }) and the integration test passes for real against it. T2.1, T2.2, T2.3, T2.4, T2.5, T2.6, and T2.7 are done: deterministic RNG, all nine distribution samplers, elicitation-to-param fitters, the canonical tree schema, composite evaluation helpers, tree validation, and the Monte Carlo runner. DB strategy decided (Neon branches); auth provider still open. Click any ticket below to expand its goal, acceptance criteria, tests, dependencies, and verification checklist.",
+  where: "T0.1 and T0.2 done. Vercel project linked, Postgres (Neon) provisioned, POSTGRES_URL pulled into .env.local — /api/health verified live (200, { ok: true, db: 'connected' }) and the integration test passes for real against it. Phase 2 is now complete: T2.1 through T2.8 are done, covering deterministic RNG, all nine distribution samplers, elicitation-to-param fitters, the canonical tree schema, composite evaluation helpers, tree validation, the Monte Carlo runner, and performance guardrails. DB strategy decided (Neon branches); auth provider still open. Click any ticket below to expand its goal, acceptance criteria, tests, dependencies, and verification checklist.",
   next: [
     "T0.3 (Drizzle ORM & migrations) and T0.4 (CI pipeline) can continue in parallel — both depend only on T0.1/T0.2",
-    "T2.8 (Performance guardrails & benchmark) is the next engine task",
+    "Phase 2 is complete; T3.1 (Create-forecast flow) is the next product slice after UI/data prerequisites",
     "T0.5 (App shell & routing skeleton) also only depends on T0.1 and can run alongside",
     "Decide auth provider (GitHub OAuth vs credentials) before starting T1.1",
   ],
@@ -188,7 +188,7 @@ const phases = [
       acceptance: ["Unauthed access to protected routes redirects to sign-in", "Authed user has a stable id"],
       tests: ["Protected route 401/redirect when unauthed", "Succeeds when authed (mocked session)"],
       dependsOn: ["T0.5"], human: { needed: true, reason: "Choosing/creating the OAuth provider (e.g. a GitHub OAuth app) and supplying its client id/secret requires your accounts and decisions." },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
+      progress: { started: true, testsWritten: true, humanVerified: false } },
     { id: "T1.2", title: "Schema & migrations (users, forecasts, versions)",
       goal: "Persisted domain model from §5.",
       implementation: ["Drizzle tables for users, forecasts, forecast_versions", "Migration", "Indexes: forecasts(userId,status), forecast_versions(forecastId,versionNo)"],

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Tree } from './tree';
-import { runForecast } from './runner';
+import type { Tree, TreeNode } from './tree';
+import { DEFAULT_TRIALS, MAX_TREE_NODES, MAX_TRIALS, runForecast } from './runner';
 
 function expectWithinThreeStandardErrors(actual: number, expected: number, se: number): void {
   expect(Math.abs(actual - expected)).toBeLessThanOrEqual(3 * se);
@@ -252,5 +252,152 @@ describe('runForecast behavior', () => {
     expect(() => runForecast(invalidTree, { trials: 1_000, seed: 'invalid' })).toThrow(
       'Tree validation failed at root: root must produce boolean output, got numeric',
     );
+  });
+
+  it('enforces the trial cap', () => {
+    const tree: Tree = {
+      root: {
+        id: 'root',
+        label: 'Root',
+        kind: 'leaf',
+        type: 'bernoulli',
+        params: { p: 0.5 },
+        children: [],
+      },
+    };
+
+    expect(() => runForecast(tree, { trials: MAX_TRIALS + 1, seed: 'trial-cap' })).toThrow(
+      `trials must be <= ${MAX_TRIALS}`,
+    );
+  });
+
+  it('enforces the node-count cap', () => {
+    const children: TreeNode[] = Array.from({ length: MAX_TREE_NODES }, (_, index) => ({
+      id: `leaf-${index}`,
+      label: `Leaf ${index}`,
+      kind: 'leaf' as const,
+      type: 'bernoulli' as const,
+      params: { p: 0.5 },
+      children: [] as [],
+    }));
+
+    const tree: Tree = {
+      root: {
+        id: 'root',
+        label: 'Root',
+        kind: 'composite',
+        type: 'or',
+        config: undefined,
+        children,
+      },
+    };
+
+    expect(() => runForecast(tree, { trials: 1_000, seed: 'node-cap' })).toThrow(
+      `tree node count must be <= ${MAX_TREE_NODES}`,
+    );
+  });
+
+  it('keeps a representative default recompute under 100ms', () => {
+    const tree: Tree = {
+      root: {
+        id: 'root',
+        label: 'Root',
+        kind: 'composite',
+        type: 'and',
+        config: undefined,
+        children: [
+          {
+            id: 'market-open',
+            label: 'Market opens',
+            kind: 'leaf',
+            type: 'bernoulli',
+            params: { p: 0.72 },
+            children: [],
+          },
+          {
+            id: 'execution-window',
+            label: 'Execution window',
+            kind: 'composite',
+            type: 'threshold',
+            config: { op: '>=', value: 3 },
+            children: [
+              {
+                id: 'capacity-sum',
+                label: 'Capacity sum',
+                kind: 'composite',
+                type: 'sum',
+                config: undefined,
+                children: [
+                  {
+                    id: 'team-a',
+                    label: 'Team A',
+                    kind: 'leaf',
+                    type: 'binomial',
+                    params: { n: 3, p: 0.55 },
+                    children: [],
+                  },
+                  {
+                    id: 'team-b',
+                    label: 'Team B',
+                    kind: 'leaf',
+                    type: 'poisson',
+                    params: { lambda: 1.6 },
+                    children: [],
+                  },
+                  {
+                    id: 'buffer',
+                    label: 'Buffer',
+                    kind: 'leaf',
+                    type: 'uniform',
+                    params: { a: 0, b: 1 },
+                    children: [],
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'approval-stack',
+            label: 'Approval stack',
+            kind: 'composite',
+            type: 'k_of_n',
+            config: { k: 2 },
+            children: [
+              {
+                id: 'legal',
+                label: 'Legal',
+                kind: 'leaf',
+                type: 'bernoulli',
+                params: { p: 0.7 },
+                children: [],
+              },
+              {
+                id: 'security',
+                label: 'Security',
+                kind: 'leaf',
+                type: 'bernoulli',
+                params: { p: 0.6 },
+                children: [],
+              },
+              {
+                id: 'ops',
+                label: 'Ops',
+                kind: 'leaf',
+                type: 'bernoulli',
+                params: { p: 0.65 },
+                children: [],
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    const start = performance.now();
+    const result = runForecast(tree, { seed: 'benchmark-default' });
+    const elapsedMs = performance.now() - start;
+
+    expect(result.trials).toBe(DEFAULT_TRIALS);
+    expect(elapsedMs).toBeLessThan(100);
   });
 });

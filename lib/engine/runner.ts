@@ -12,9 +12,12 @@ import {
 import { evaluateCompositeNode, type TrialValue } from './combinators';
 import { createRng, type Rng } from './rng';
 import { validateTree } from './validate';
-import { computeOutputType, type LeafNode, type Tree, type TreeNode } from './tree';
+import { computeOutputType, flattenTree, type LeafNode, type Tree, type TreeNode } from './tree';
 
 const Z_95 = 1.96;
+export const DEFAULT_TRIALS = 10_000;
+export const MAX_TRIALS = 100_000;
+export const MAX_TREE_NODES = 200;
 
 export type NumericNodeSummary = {
   mean: number;
@@ -171,10 +174,14 @@ function summarizeNumericSamples(numericSamples: Map<string, number[]>): Record<
 }
 
 export function runForecast(tree: Tree, options: RunForecastOptions): RunForecastResult {
-  const { trials = 10_000, seed, includeNodeSummaries = false } = options;
+  const { trials = DEFAULT_TRIALS, seed, includeNodeSummaries = false } = options;
 
   if (!Number.isInteger(trials) || trials <= 0) {
     throw new RangeError('trials must be a positive integer');
+  }
+
+  if (trials > MAX_TRIALS) {
+    throw new RangeError(`trials must be <= ${MAX_TRIALS}`);
   }
 
   const validation = validateTree(tree);
@@ -184,6 +191,12 @@ export function runForecast(tree: Tree, options: RunForecastOptions): RunForecas
     throw new RangeError(
       `Tree validation failed at ${firstError.path}: ${firstError.message}`,
     );
+  }
+
+  const nodeCount = flattenTree(tree.root).length;
+
+  if (nodeCount > MAX_TREE_NODES) {
+    throw new RangeError(`tree node count must be <= ${MAX_TREE_NODES}`);
   }
 
   const rng = createRng(seed);
