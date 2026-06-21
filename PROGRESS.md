@@ -41,9 +41,13 @@ blank for false.
 | T2.6   | x       | x                     |                | Added `validateTree()` in `lib/engine/validate.ts` with path-based, human-readable errors for root type, arity, child typing, and param ranges.                                                                                                                                                                                                                                                          |
 | T2.7   | x       | x                     |                | Added `runForecast()` in `lib/engine/runner.ts` with deterministic Monte Carlo evaluation, CI/SE aggregation, and optional numeric node summaries.                                                                                                                                                                                                                                                       |
 | T2.8   | x       | x                     |                | Added runner trial/node guardrails and a representative default-run benchmark in `lib/engine/runner.ts`.                                                                                                                                                                                                                                                                                                 |
-| T3.1   | x       |                       |                | Combined with T3.2 on the current branch. Added a server-side create flow for binary forecasts with cadence metadata, an immediate `source:'initial'` version, dashboard revalidation, and redirect into `/forecasts/[id]`. Form/validation/unit/build coverage is green locally; the new DB integration tests are written but not marked green because sourcing `.env.local` in this shell hit a live DB insert failure before the test body could run. |
-| T3.2   | x       |                       |                | Combined with T3.1 on the current branch. Dashboard now lists only the signed-in user's forecasts, shows latest headline probability, links into the forecast, and computes a due-for-review badge from cadence plus latest-version time. Cadence unit tests and RTL list coverage are green locally; DB-backed list isolation tests are written alongside T3.1's integration coverage but currently blocked by the same live DB insert failure in this shell. |
+| T3.1   | x       | x                     |                | Combined with T3.2 on the current branch. Added a server-side create flow for binary forecasts with cadence metadata, an immediate `source:'initial'` version, dashboard revalidation, and redirect into `/forecasts/[id]`. Form/validation/unit/build coverage is green locally, and the PR #10 independent review confirmed the DB-backed create/reload tests pass with a real `POSTGRES_URL`; GitHub Actions CI is green on that commit. |
+| T3.2   | x       | x                     |                | Combined with T3.1 on the current branch. Dashboard now lists only the signed-in user's forecasts, shows latest headline probability, links into the forecast, and computes a due-for-review badge from cadence plus latest-version time. Cadence unit tests and RTL list coverage are green locally, and PR #10's independent review confirmed the DB-backed list-isolation assertions pass with a real `POSTGRES_URL`; GitHub Actions CI is green on that commit. |
 | T3.3   | x       | x                     |                | Added a client-side tree editor shell on `/forecasts/[id]`: nested outline, rename/delete/reorder controls, node-type conversion (including root staying boolean), add-child type picker, expand/collapse, and live inline `validateTree()` feedback. Component tests cover rename/add/delete/move plus invalid type-change rejection; lint, typecheck, and `next build` are green locally. |
+| T3.4   | x       | x                     |                | Added inline leaf editors for every v1 leaf type, including elicitation-driven parameter fitting and a distribution preview card with implied quantiles/yes-rate. Invalid inputs stay in the UI as recoverable errors instead of crashing the editor. Added focused coverage for leaf-preview math plus component tests covering elicitation edits and invalid draft handling; local lint, typecheck, full unit suite, and production build are green. |
+| T3.5   | x       | x                     |                | Added composite-node configuration in the editor: `k_of_n` enforces `1 <= k <= n`, `threshold` edits `op` + `value`, and composite cards always surface their output type / accepted child type. Added component coverage for `k_of_n` constraint rejection alongside the existing structure-editor tests; local lint/typecheck/test/build are green. |
+| T3.6   | x       | x                     |                | Added a debounced live headline panel in the editor using client-side `runForecast()`, with headline probability, SE, 95% CI, and invalid-tree guidance when recomputation is disabled. Added a component test that edits a leaf and verifies the debounced headline recompute plus CI display; local lint/typecheck/test/build are green. |
+| T3.7   | x       | x                     |                | Added version persistence from the editor via `POST /api/forecasts/[id]/versions`, which appends `source:'edit'` versions through the repository layer and refreshes the page after save. Added route tests for the new endpoint's auth/404/400/200 branches; repository-level append/reload/invalid-tree coverage is also green when run with a real `POSTGRES_URL`, as confirmed in PR #10's independent review and green CI. |
 
 Tickets not listed above (T1.2 onward, all of Phases 3–8) are not started —
 omit a row until work begins.
@@ -61,7 +65,7 @@ Review status vocabulary: `not_ready`, `pending`, `in_review`,
 | Phase 0 | passed        | Codex    | 2026-06-21  | Codex's independent review passed T0.1, T0.2, T0.4, T0.5 and returned T0.3 to changes requested solely because the required ephemeral-Neon migration CI step was absent. That step has since been implemented and fixed (see T0.3 above); remote CI is green. Phase 0 is complete. |
 | Phase 1 | passed        | Claude + Codex | 2026-06-21  | User confirmed Phase 1 received two independent LLM reviews and should now be treated as fully complete. The earlier Phase 1 PR-review findings (route-guard public-route prefix matching and proxy-layer test coverage gaps) were fixed before this status change; T1.1 remains human-verified and T1.2–T1.4 remained green against the real Neon DB at review time.                                                                                                                                                 |
 | Phase 2 | passed        | Claude   | 2026-06-21  | Independently reviewed T2.1–T2.8 (implemented by Codex) against `BUILD_PLAN.md` §4: read all 8 `lib/engine` source files, verified all 9 leaf distributions, all 7 combinators, all 5 `validateTree()` rules, and the runner's analytic anchors. Found and fixed two issues on `codex/phase-2-independent-review`: (1) the triangular/PERT schema allowed `min === max` while the elicitation fitter rejected it — schema now requires `min < max`; (2) `validateTree()` had no duplicate-node-id check, which the data model relies on for per-node history reconstruction — added `validateUniqueIds()`. Added 3 regression tests. Reran lint, typecheck, full suite (78 passed, 2 skipped), and `next build` — all clean. |
-| Phase 3 | not_ready     |          |             |                                                                                                                                                                                                                                                                                    |
+| Phase 3 | pending       |          |             | Implementation and listed tests for T3.1-T3.7 are now complete on PR #10 after adding the missing leaf/composite/headline/route coverage. Independent re-review is still required, and the user still needs to perform the human UX verification called out on T3.3/T3.4/T3.6.                                                                                                              |
 | Phase 4 | not_ready     |          |             |                                                                                                                                                                                                                                                                                    |
 | Phase 5 | not_ready     |          |             |                                                                                                                                                                                                                                                                                    |
 | Phase 6 | not_ready     |          |             |                                                                                                                                                                                                                                                                                    |
@@ -76,22 +80,19 @@ above.
 
 ### Where we are
 
-Phases 0, 1, and 2 are complete. Phase 1 is now marked passed after the user
-confirmed two independent LLM reviews on top of the earlier T1.1 human
-verification and DB-backed test coverage. Phase 3 is underway: T3.1/T3.2 are
-implemented as the first forecast CRUD slice, and T3.3 now layers the tree
-editor shell on top: local outline editing, type conversion, add/delete/move,
-expand/collapse, and inline tree validation. Local unit/RTL/typecheck/build
-checks are green for the editor work.
+Phases 0, 1, and 2 are complete. Phase 3 is now implemented end to end on PR
+#10: T3.1-T3.3 cover create/list/editor-shell, and T3.4-T3.7 add leaf and
+composite editing, a debounced live headline, and save-to-version persistence
+from the editor. Local lint, typecheck, the full unit suite, and production
+build are green, and the PR review also confirmed the DB-backed T3 tests pass
+with a real `POSTGRES_URL`; Phase 3 is ready for independent re-review.
 
 ### Next steps
 
-1. Clear the live DB harness issue that currently prevents the new T3
-   repository integration tests from running in this shell, then mark T3.1/T3.2
-   test coverage fully green.
-2. Continue Phase 3 with T3.4/T3.5, wiring leaf/composite-specific editors
-   into the new shell so structure edits can also configure distributions and
-   combinator settings.
+1. Have an independent agent re-review PR #10 now that the missing T3.4-T3.7
+   tests are in place.
+2. Perform the human UX verification still called out on T3.3, T3.4, and T3.6
+   before treating Phase 3 as fully closed.
 
 ## Coordination rules
 

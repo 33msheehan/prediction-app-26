@@ -76,17 +76,65 @@ function defaultLeaf(type: LeafNodeType, id: string, label: string): LeafNode {
         children: [],
       };
     case 'binomial':
-      return { id, label, kind: 'leaf', type, params: { n: 1, p: 0.5 }, children: [] };
+      return {
+        id,
+        label,
+        kind: 'leaf',
+        type,
+        params: { n: 1, p: 0.5 },
+        elicitation: { n: 1, p: 0.5 },
+        children: [],
+      };
     case 'poisson':
-      return { id, label, kind: 'leaf', type, params: { lambda: 1 }, children: [] };
+      return {
+        id,
+        label,
+        kind: 'leaf',
+        type,
+        params: { lambda: 1 },
+        elicitation: { lambda: 1 },
+        children: [],
+      };
     case 'normal':
-      return { id, label, kind: 'leaf', type, params: { mu: 0, sigma: 1 }, children: [] };
+      return {
+        id,
+        label,
+        kind: 'leaf',
+        type,
+        params: { mu: 0, sigma: 1 },
+        elicitation: { p10: -1.2816, p50: 0, p90: 1.2816 },
+        children: [],
+      };
     case 'lognormal':
-      return { id, label, kind: 'leaf', type, params: { muLog: 0, sigmaLog: 1 }, children: [] };
+      return {
+        id,
+        label,
+        kind: 'leaf',
+        type,
+        params: { muLog: 0, sigmaLog: 1 },
+        elicitation: { p10: 0.2776, p50: 1, p90: 3.6022 },
+        children: [],
+      };
     case 'beta':
-      return { id, label, kind: 'leaf', type, params: { alpha: 2, beta: 2 }, children: [] };
+      return {
+        id,
+        label,
+        kind: 'leaf',
+        type,
+        params: { alpha: 2, beta: 2 },
+        elicitation: { mean: 0.5, concentration: 4 },
+        children: [],
+      };
     case 'uniform':
-      return { id, label, kind: 'leaf', type, params: { a: 0, b: 1 }, children: [] };
+      return {
+        id,
+        label,
+        kind: 'leaf',
+        type,
+        params: { a: 0, b: 1 },
+        elicitation: { a: 0, b: 1 },
+        children: [],
+      };
     case 'triangular':
       return {
         id,
@@ -94,6 +142,7 @@ function defaultLeaf(type: LeafNodeType, id: string, label: string): LeafNode {
         kind: 'leaf',
         type,
         params: { min: 0, mode: 0.5, max: 1 },
+        elicitation: { min: 0, mode: 0.5, max: 1 },
         children: [],
       };
     case 'pert':
@@ -103,6 +152,7 @@ function defaultLeaf(type: LeafNodeType, id: string, label: string): LeafNode {
         kind: 'leaf',
         type,
         params: { min: 0, mode: 0.5, max: 1 },
+        elicitation: { min: 0, mode: 0.5, max: 1 },
         children: [],
       };
   }
@@ -151,6 +201,12 @@ function mapTreeNode(
   return {
     ...node,
     children: node.children.map((child) => mapTreeNode(child, nodeId, updater)),
+  };
+}
+
+export function replaceNode(tree: Tree, nodeId: string, nextNode: TreeNode): Tree {
+  return {
+    root: mapTreeNode(tree.root, nodeId, () => nextNode),
   };
 }
 
@@ -251,6 +307,25 @@ export function moveNode(tree: Tree, nodeId: string, direction: 'up' | 'down'): 
       ...tree.root,
       children: moveAmongChildren(tree.root.children, nodeId, direction),
     },
+  };
+}
+
+export function updateCompositeNodeConfig(
+  tree: Tree,
+  nodeId: string,
+  config: CompositeNode['config'],
+): Tree {
+  return {
+    root: mapTreeNode(tree.root, nodeId, (node) => {
+      if (node.kind === 'leaf') {
+        return node;
+      }
+
+      return {
+        ...node,
+        config,
+      };
+    }),
   };
 }
 

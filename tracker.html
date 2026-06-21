@@ -371,10 +371,10 @@
 const LAST_UPDATED = "2026-06-21";
 
 const SUMMARY = {
-  "where": "Phases 0, 1, and 2 are complete. Phase 1 is now marked passed after the user confirmed two independent LLM reviews on top of the earlier T1.1 human verification and DB-backed test coverage. Phase 3 is underway: T3.1/T3.2 are implemented as the first forecast CRUD slice, and T3.3 now layers the tree editor shell on top: local outline editing, type conversion, add/delete/move, expand/collapse, and inline tree validation. Local unit/RTL/typecheck/build checks are green for the editor work.",
+  "where": "Phases 0, 1, and 2 are complete. Phase 3 is now implemented end to end on PR #10: T3.1-T3.3 cover create/list/editor-shell, and T3.4-T3.7 add leaf and composite editing, a debounced live headline, and save-to-version persistence from the editor. Local lint, typecheck, the full unit suite, and production build are green, and the PR review also confirmed the DB-backed T3 tests pass with a real <code>POSTGRES_URL</code>; Phase 3 is ready for independent re-review.",
   "next": [
-    "Clear the live DB harness issue that currently prevents the new T3 repository integration tests from running in this shell, then mark T3.1/T3.2 test coverage fully green.",
-    "Continue Phase 3 with T3.4/T3.5, wiring leaf/composite-specific editors into the new shell so structure edits can also configure distributions and combinator settings."
+    "Have an independent agent re-review PR #10 now that the missing T3.4-T3.7 tests are in place.",
+    "Perform the human UX verification still called out on T3.3, T3.4, and T3.6 before treating Phase 3 as fully closed."
   ]
 };
 
@@ -897,7 +897,7 @@ const phases = [
   {
     "name": "Phase 3 — Forecast CRUD & tree editor",
     "phaseReview": {
-      "status": "not_ready",
+      "status": "pending",
       "reviewer": null,
       "reviewedAt": null
     },
@@ -927,7 +927,7 @@ const phases = [
         },
         "progress": {
           "started": true,
-          "testsWritten": false,
+          "testsWritten": true,
           "humanVerified": false
         }
       },
@@ -956,7 +956,7 @@ const phases = [
         },
         "progress": {
           "started": true,
-          "testsWritten": false,
+          "testsWritten": true,
           "humanVerified": false
         }
       },
@@ -1021,8 +1021,8 @@ const phases = [
           "reason": "This is the 'good-habits' feature — whether the preview actually makes you confront your tails is your call, not a unit test's."
         },
         "progress": {
-          "started": false,
-          "testsWritten": false,
+          "started": true,
+          "testsWritten": true,
           "humanVerified": false
         }
       },
@@ -1051,8 +1051,8 @@ const phases = [
           "needed": false
         },
         "progress": {
-          "started": false,
-          "testsWritten": false,
+          "started": true,
+          "testsWritten": true,
           "humanVerified": false
         }
       },
@@ -1086,8 +1086,8 @@ const phases = [
           "reason": "Whether the debounce/recompute actually feels snappy in a real browser is worth confirming yourself."
         },
         "progress": {
-          "started": false,
-          "testsWritten": false,
+          "started": true,
+          "testsWritten": true,
           "humanVerified": false
         }
       },
@@ -1118,8 +1118,8 @@ const phases = [
           "needed": false
         },
         "progress": {
-          "started": false,
-          "testsWritten": false,
+          "started": true,
+          "testsWritten": true,
           "humanVerified": false
         }
       }
