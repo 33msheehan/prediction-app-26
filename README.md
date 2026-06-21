@@ -12,7 +12,7 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 | --- | --- | --- | --- |
 | Phase 0 — Scaffold & infrastructure | 5/5 | ✅ Passed (Codex, 2026-06-21) | ✅ T0.1 &nbsp; ✅ T0.2 &nbsp; ✅ T0.3 &nbsp; ✅ T0.4 &nbsp; ✅ T0.5 |
 | Phase 1 — Auth & data layer | 0/4 | Not ready | ○ T1.1 &nbsp; ○ T1.2 &nbsp; ○ T1.3 &nbsp; ○ T1.4 |
-| Phase 2 — Probabilistic core (pure, client-side; build early) | 8/8 | Awaiting review | ✅ T2.1 &nbsp; ✅ T2.2 &nbsp; ✅ T2.3 &nbsp; ✅ T2.4 &nbsp; ✅ T2.5 &nbsp; ✅ T2.6 &nbsp; ✅ T2.7 &nbsp; ✅ T2.8 |
+| Phase 2 — Probabilistic core (pure, client-side; build early) | 8/8 | ✅ Passed (Claude, 2026-06-21) | ✅ T2.1 &nbsp; ✅ T2.2 &nbsp; ✅ T2.3 &nbsp; ✅ T2.4 &nbsp; ✅ T2.5 &nbsp; ✅ T2.6 &nbsp; ✅ T2.7 &nbsp; ✅ T2.8 |
 | Phase 3 — Forecast CRUD & tree editor | 0/7 | Not ready | ○ T3.1 &nbsp; ○ T3.2 &nbsp; ○ T3.3 &nbsp; ○ T3.4 &nbsp; ○ T3.5 &nbsp; ○ T3.6 &nbsp; ○ T3.7 |
 | Phase 4 — Living forecasts: check-ins, history, update discipline | 0/6 | Not ready | ○ T4.1 &nbsp; ○ T4.2 &nbsp; ○ T4.3 &nbsp; ○ T4.4 &nbsp; ○ T4.5 &nbsp; ○ T4.6 |
 | Phase 5 — Resolution | 0/3 | Not ready | ○ T5.1 &nbsp; ○ T5.2 &nbsp; ○ T5.3 |

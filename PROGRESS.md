@@ -54,7 +54,7 @@ Review status vocabulary: `not_ready`, `pending`, `in_review`,
 | ------- | ------------- | -------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Phase 0 | passed        | Codex    | 2026-06-21  | Codex's independent review passed T0.1, T0.2, T0.4, T0.5 and returned T0.3 to changes requested solely because the required ephemeral-Neon migration CI step was absent. That step has since been implemented and fixed (see T0.3 above); remote CI is green. Phase 0 is complete. |
 | Phase 1 | not_ready     |          |             | Phase tickets are not complete.                                                                                                                                                                                                                                                    |
-| Phase 2 | pending       |          |             | Review T2.1–T2.8 against `BUILD_PLAN.md`; inspect merged code and rerun lint, typecheck, full tests, and engine benchmarks. The implementing agent must not pass this gate.                                                                                                        |
+| Phase 2 | passed        | Claude   | 2026-06-21  | Independently reviewed T2.1–T2.8 (implemented by Codex) against `BUILD_PLAN.md` §4: read all 8 `lib/engine` source files, verified all 9 leaf distributions, all 7 combinators, all 5 `validateTree()` rules, and the runner's analytic anchors. Found and fixed two issues on `codex/phase-2-independent-review`: (1) the triangular/PERT schema allowed `min === max` while the elicitation fitter rejected it — schema now requires `min < max`; (2) `validateTree()` had no duplicate-node-id check, which the data model relies on for per-node history reconstruction — added `validateUniqueIds()`. Added 3 regression tests. Reran lint, typecheck, full suite (78 passed, 2 skipped), and `next build` — all clean. |
 | Phase 3 | not_ready     |          |             |                                                                                                                                                                                                                                                                                    |
 | Phase 4 | not_ready     |          |             |                                                                                                                                                                                                                                                                                    |
 | Phase 5 | not_ready     |          |             |                                                                                                                                                                                                                                                                                    |
@@ -73,19 +73,18 @@ above.
 Phase 0 (scaffold & infrastructure) is complete: all five tickets passed
 independent review, including T0.3 after fixing its CI remediation (the test
 step now uses a pooled Neon connection string, as `@vercel/postgres`
-requires). Phase 2 (probabilistic core) is fully implemented (T2.1–T2.8, all
-74 engine+app tests pass) and awaiting its own independent review. T1.1
-(auth) is not started; DB strategy is Neon branches and the auth provider is
-still open.
+requires). Phase 2 (probabilistic core) passed independent review by Claude:
+a schema/fitter inconsistency on degenerate triangular/PERT params and a
+missing duplicate-node-id check in `validateTree()` were found and fixed,
+with 3 new regression tests (78 tests total, lint/typecheck/build all clean).
+T1.1 (auth) is not started; DB strategy is Neon branches and the auth
+provider is still open.
 
 ### Next steps
 
-1. Independent agent: review Phase 2 and record reviewer, date, commands, and
-   findings in the table above before setting its phase review status to
-   `passed`.
-2. T1.1 (Authentication) is next — needs the user to choose/create an OAuth
+1. T1.1 (Authentication) is next — needs the user to choose/create an OAuth
    provider first.
-3. T1.2 (Schema & migrations) can start once T1.1's provider decision
+2. T1.2 (Schema & migrations) can start once T1.1's provider decision
    unblocks the dependency chain.
 
 ## Coordination rules
@@ -207,3 +206,17 @@ still open.
   files (this log and `tracker.html`) could silently drift apart, and now
   there is exactly one editable source for status (`PROGRESS.md`'s tables)
   and one editable source for scope (`BUILD_PLAN.md`).
+- 2026-06-21: Claude independently reviewed Phase 2 (T2.1–T2.8, implemented
+  by Codex) on branch `codex/phase-2-independent-review`. Read every
+  `lib/engine` source file against `BUILD_PLAN.md` §4 — all 9 leaf
+  distributions, all 7 combinators, the Zod tree schema, `validateTree()`'s
+  5 rules, and `runForecast()`'s analytic anchors checked out correct.
+  Found two real issues: the triangular/PERT schema permitted the degenerate
+  `min === max` case that the elicitation fitter explicitly rejects
+  (inconsistent; fixed by requiring `min < max` in the schema refine), and
+  `validateTree()` had no check for duplicate node ids, which the data model
+  relies on being unique for per-node history reconstruction across version
+  snapshots (fixed by adding `validateUniqueIds()` in `lib/engine/validate.ts`).
+  Added 3 regression tests (duplicate-id rejection, two min===max rejection
+  cases). Reran lint, typecheck, the full suite (78 passed, 2 skipped), and
+  `next build` — all clean. Phase 2 moved to `passed`.

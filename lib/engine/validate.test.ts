@@ -216,4 +216,22 @@ describe('validateTree', () => {
       ],
     });
   });
+
+  it('rejects duplicate node ids', () => {
+    const tree = validTree();
+    tree.root.children[0] = {
+      ...tree.root.children[0],
+      id: 'threshold-1',
+    } as unknown as (typeof tree.root.children)[number];
+
+    expect(validateTree(tree)).toEqual({
+      valid: false,
+      errors: [
+        {
+          path: 'root.children[1]',
+          message: 'duplicate node id "threshold-1" (first seen at root.children[0])',
+        },
+      ],
+    });
+  });
 });
