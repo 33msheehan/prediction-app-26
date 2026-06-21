@@ -45,3 +45,13 @@ This project uses Vercel Postgres (Neon-backed). To connect a database:
 4. `GET /api/health` ([app/api/health/route.ts](app/api/health/route.ts)) runs a trivial `SELECT 1` and returns `{ ok: true, db: 'connected' }` once `POSTGRES_URL` is set.
 
 The integration test in [app/api/health/route.test.ts](app/api/health/route.test.ts) skips automatically when `POSTGRES_URL` is unset, and runs for real once it is — including in CI against a Neon branch (T0.3).
+
+## Migrations (T0.3)
+
+[Drizzle](https://orm.drizzle.team) manages schema migrations against the database from [§ Database setup](#database-setup-t02). The schema itself ([lib/db/schema.ts](lib/db/schema.ts)) is still a placeholder — real tables land in T1.2.
+
+- `npm run db:generate` — diff `lib/db/schema.ts` against the last migration and generate a new SQL migration file under [drizzle/](drizzle). Use `npx drizzle-kit generate --custom --name <name>` for a hand-written migration when there's no schema diff to auto-generate from.
+- `npm run db:migrate` — apply any pending migrations in [drizzle/](drizzle) to the database at `POSTGRES_URL`. Safe to re-run: already-applied migrations are tracked in `drizzle.__drizzle_migrations` and skipped.
+- `npm run db:studio` — browse the database with Drizzle Studio.
+
+[lib/db/migrations.test.ts](lib/db/migrations.test.ts) asserts the migration history is exactly what's expected after `db:migrate` runs; like the health check test, it skips without `POSTGRES_URL`.
