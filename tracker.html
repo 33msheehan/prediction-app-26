@@ -130,9 +130,10 @@ const LAST_UPDATED = "2026-06-21";
 
 // Edit this alongside ticket status changes — keep it short (2-4 sentences + 3-5 next steps).
 const SUMMARY = {
-  where: "T0.1 and T0.2 done. Vercel project linked, Postgres (Neon) provisioned, POSTGRES_URL pulled into .env.local — /api/health verified live (200, { ok: true, db: 'connected' }) and the integration test passes for real against it. DB strategy decided (Neon branches); auth provider still open. Click any ticket below to expand its goal, acceptance criteria, tests, dependencies, and verification checklist.",
+  where: "T0.1 and T0.2 done. Vercel project linked, Postgres (Neon) provisioned, POSTGRES_URL pulled into .env.local — /api/health verified live (200, { ok: true, db: 'connected' }) and the integration test passes for real against it. T2.1 and T2.2 are done on the engine branch: deterministic RNG plus all nine distribution samplers with focused tests and typecheck passing. DB strategy decided (Neon branches); auth provider still open. Click any ticket below to expand its goal, acceptance criteria, tests, dependencies, and verification checklist.",
   next: [
-    "T0.3 (Drizzle ORM & migrations) and T0.4 (CI pipeline) can start in parallel — both depend only on T0.1/T0.2",
+    "T0.3 (Drizzle ORM & migrations) and T0.4 (CI pipeline) can continue in parallel — both depend only on T0.1/T0.2",
+    "T2.3 (Elicitation → parameter fitters) is the next engine task and depends on T2.2",
     "T0.5 (App shell & routing skeleton) also only depends on T0.1 and can run alongside",
     "Decide auth provider (GitHub OAuth vs credentials) before starting T1.1",
   ],
@@ -217,14 +218,14 @@ const phases = [
       acceptance: ["Same seed → identical sequence", "Different seeds → different"],
       tests: ["Determinism test", "Basic uniformity sanity (mean ≈ 0.5 over large N)"],
       dependsOn: ["T0.1"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
+      progress: { started: true, testsWritten: true, humanVerified: false } },
     { id: "T2.2", title: "Distribution samplers",
       goal: "All nine distributions in §4.2.",
       implementation: ["Implement each per §6.1", "Document algorithm limits in code (e.g. Poisson/Knuth)"],
       acceptance: ["Each sampler's empirical mean/variance match theory within tolerance at large N"],
       tests: ["Per-distribution statistical tests (seeded): mean & variance within tolerance", "Range constraints (Beta ∈ [0,1], Poisson ∈ ℤ≥0, etc.)"],
       dependsOn: ["T2.1"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
+      progress: { started: true, testsWritten: true, humanVerified: false } },
     { id: "T2.3", title: "Elicitation → parameter fitters",
       goal: "Human inputs → fitted params (§6.2).",
       implementation: ["Normal/Lognormal quantile fit", "Triangular/PERT 3-point", "Beta (mean+ν, pseudo-counts)", "Poisson"],
