@@ -10,7 +10,7 @@ remains the formal dashboard.
 | --- | --- | --- | --- | --- |
 | T0.1 | Done | prior session | main | Tooling scaffold is in place; tracker marks started/tests complete. |
 | T0.2 | Done | prior session + user | main | Vercel Postgres provisioned, env vars pulled, /api/health verified live (200, db: connected) and integration test passes for real. |
-| T0.3 | Done (pending human Neon-token verification) | claude session | claude/t0.3-orm-migrations (worktree: ../prediction-app-t0.3) | Drizzle wired; empty initial migration generated via `--custom`; `db:migrate` verified idempotent against the real provisioned DB (re-run added no duplicate `drizzle.__drizzle_migrations` rows). Skip-gated integration test added. Full ephemeral-Neon-branch CI verification still needs the user's Neon API token (T0.4-adjacent). |
+| T0.3 | Done | claude session | claude/t0.3-orm-migrations (merged) | Drizzle wired; empty initial migration generated via `--custom`. User supplied a Neon API token; created a real ephemeral branch (`ci-test-t0.3`), ran `db:migrate` against it twice to confirm idempotency, then deleted the branch. Human verification complete. |
 | T0.4 | Not started | unassigned | — | CI pipeline. Good parallel task for a second agent. |
 | T2.1 | Done | current session | codex/t2-engine | Added deterministic seedable RNG helpers in `lib/engine/rng.ts` with tests. |
 | T2.2 | Done | current session | codex/t2-engine | Added distribution samplers in `lib/engine/distributions.ts` with validation and statistical tests. |
@@ -63,3 +63,7 @@ remains the formal dashboard.
 - 2026-06-21: Created `codex/t2.6-tree-validation` and completed T2.6 with
   `validateTree()` in `lib/engine/validate.ts`. Engine tests now pass with
   62 tests across 7 files; `npm run typecheck` exits 0.
+- 2026-06-21: T0.3 fully closed — user supplied a Neon API token, used it to
+  create and tear down a real ephemeral branch, confirmed `db:migrate` is
+  idempotent against it. Token stored only in gitignored `.env.local`
+  (`NEON_API_KEY`); never written to a tracked file or printed to a terminal.
