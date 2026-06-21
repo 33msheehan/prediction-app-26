@@ -274,6 +274,21 @@ describe('TreeSchema', () => {
 
     expect(() => TreeSchema.parse(invalidTree)).toThrow();
   });
+
+  it.each(['triangular', 'pert'] as const)('rejects %s params with min === max', (type) => {
+    const tree = {
+      root: {
+        id: 'root',
+        label: 'Degenerate',
+        kind: 'leaf',
+        type,
+        params: { min: 3, mode: 3, max: 3 },
+        children: [],
+      },
+    };
+
+    expect(() => TreeSchema.parse(tree)).toThrow();
+  });
 });
 
 describe('tree traversal helpers', () => {

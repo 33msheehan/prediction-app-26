@@ -199,8 +199,8 @@ const triangularParamsSchema = z
     mode: finiteNumber,
     max: finiteNumber,
   })
-  .refine(({ min, mode, max }) => min <= mode && mode <= max, {
-    message: 'expected min <= mode <= max',
+  .refine(({ min, mode, max }) => min < max && min <= mode && mode <= max, {
+    message: 'expected min < max and min <= mode <= max',
     path: ['mode'],
   });
 

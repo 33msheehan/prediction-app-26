@@ -371,9 +371,8 @@
 const LAST_UPDATED = "2026-06-21";
 
 const SUMMARY = {
-  "where": "Phase 0 (scaffold & infrastructure) is complete: all five tickets passed independent review, including T0.3 after fixing its CI remediation (the test step now uses a pooled Neon connection string, as <code>@vercel/postgres</code> requires). Phase 2 (probabilistic core) is fully implemented (T2.1–T2.8, all 74 engine+app tests pass) and awaiting its own independent review. T1.1 (auth) is not started; DB strategy is Neon branches and the auth provider is still open.",
+  "where": "Phase 0 (scaffold & infrastructure) is complete: all five tickets passed independent review, including T0.3 after fixing its CI remediation (the test step now uses a pooled Neon connection string, as <code>@vercel/postgres</code> requires). Phase 2 (probabilistic core) passed independent review by Claude: a schema/fitter inconsistency on degenerate triangular/PERT params and a missing duplicate-node-id check in <code>validateTree()</code> were found and fixed, with 3 new regression tests (78 tests total, lint/typecheck/build all clean). T1.1 (auth) is not started; DB strategy is Neon branches and the auth provider is still open.",
   "next": [
-    "Independent agent: review Phase 2 and record reviewer, date, commands, and findings in the table above before setting its phase review status to <code>passed</code>.",
     "T1.1 (Authentication) is next — needs the user to choose/create an OAuth provider first.",
     "T1.2 (Schema & migrations) can start once T1.1's provider decision unblocks the dependency chain."
   ]
@@ -661,9 +660,9 @@ const phases = [
   {
     "name": "Phase 2 — Probabilistic core (pure, client-side; build early)",
     "phaseReview": {
-      "status": "pending",
-      "reviewer": null,
-      "reviewedAt": null
+      "status": "passed",
+      "reviewer": "Claude",
+      "reviewedAt": "2026-06-21"
     },
     "tickets": [
       {

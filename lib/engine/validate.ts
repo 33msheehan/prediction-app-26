@@ -7,6 +7,29 @@ import {
   type TreeNode,
 } from './tree';
 
+function validateUniqueIds(
+  node: TreeNode,
+  path: Array<string | number>,
+  seen: Map<string, string>,
+  errors: TreeValidationError[],
+): void {
+  const nodePath = formatPath(path);
+  const firstPath = seen.get(node.id);
+
+  if (firstPath !== undefined) {
+    errors.push({
+      path: nodePath,
+      message: `duplicate node id "${node.id}" (first seen at ${firstPath})`,
+    });
+  } else {
+    seen.set(node.id, nodePath);
+  }
+
+  node.children.forEach((child, index) => {
+    validateUniqueIds(child, [...path, 'children', index], seen, errors);
+  });
+}
+
 export type TreeValidationError = {
   path: string;
   message: string;
@@ -138,6 +161,7 @@ export function validateTree(input: unknown): TreeValidationResult {
   }
 
   validateSemantics(tree.root, ['root'], errors);
+  validateUniqueIds(tree.root, ['root'], new Map(), errors);
 
   return {
     valid: errors.length === 0,
