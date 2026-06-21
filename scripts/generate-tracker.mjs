@@ -265,3 +265,74 @@ writeFileSync(trackerPath, next.endsWith('\n') ? next : `${next}\n`);
 console.log(
   `tracker.html regenerated (${phases.flatMap((p) => p.tickets).length} tickets across ${phases.length} phases).`,
 );
+
+// ---------- inject a summary table into README.md ----------
+const readmePath = path.join(root, 'README.md');
+const readme = readFileSync(readmePath, 'utf8');
+const readmeStartMarker = '<!-- TRACKER:START — do not edit by hand, run `npm run tracker:generate` -->';
+const readmeEndMarker = '<!-- TRACKER:END -->';
+const readmeStartIdx = readme.indexOf(readmeStartMarker);
+const readmeEndIdx = readme.indexOf(readmeEndMarker);
+if (readmeStartIdx === -1 || readmeEndIdx === -1) {
+  throw new Error('README.md: missing TRACKER markers');
+}
+
+function isComplete(t) {
+  return t.progress.started && t.progress.testsWritten && (!t.human.needed || t.progress.humanVerified);
+}
+function statusGlyph(t) {
+  if (isComplete(t)) return '✅';
+  if (t.progress.started) return '◐';
+  return '○';
+}
+const REVIEW_LABEL = {
+  not_ready: 'Not ready',
+  pending: 'Awaiting review',
+  in_review: 'In review',
+  changes_requested: 'Changes requested',
+  passed: '✅ Passed',
+};
+
+const allTickets = phases.flatMap((p) => p.tickets);
+const counts = { done: 0, progress: 0, todo: 0 };
+for (const t of allTickets) {
+  if (isComplete(t)) counts.done++;
+  else if (t.progress.started) counts.progress++;
+  else counts.todo++;
+}
+
+const TRACKER_URL =
+  'https://htmlpreview.github.io/?https://github.com/33msheehan/prediction-app-26/blob/main/tracker.html';
+
+const phaseRows = phases
+  .map((phase) => {
+    const done = phase.tickets.filter(isComplete).length;
+    const review = phase.phaseReview.status === 'passed'
+      ? `${REVIEW_LABEL.passed} (${phase.phaseReview.reviewer}, ${phase.phaseReview.reviewedAt})`
+      : REVIEW_LABEL[phase.phaseReview.status];
+    const tickets = phase.tickets.map((t) => `${statusGlyph(t)} ${t.id}`).join(' &nbsp; ');
+    return `| ${phase.name} | ${done}/${phase.tickets.length} | ${review} | ${tickets} |`;
+  })
+  .join('\n');
+
+const readmeBlock = [
+  readmeStartMarker,
+  '',
+  `**[Open the live, interactive tracker ↗](${TRACKER_URL})** — click any ticket for its goal, implementation notes, acceptance criteria, tests, and dependencies.`,
+  '',
+  `${counts.done}/${allTickets.length} tickets done · ${counts.progress} in progress · ${counts.todo} not started. Legend: ✅ done &nbsp; ◐ in progress &nbsp; ○ not started.`,
+  '',
+  '| Phase | Tickets | Phase review | |',
+  '| --- | --- | --- | --- |',
+  phaseRows,
+  '',
+  `*Generated from \`BUILD_PLAN.md\` + \`PROGRESS.md\` by \`scripts/generate-tracker.mjs\` — last updated ${LAST_UPDATED}. Do not edit this section by hand.*`,
+  '',
+  readmeEndMarker,
+].join('\n');
+
+const nextReadme =
+  readme.slice(0, readmeStartIdx) + readmeBlock + readme.slice(readmeEndIdx + readmeEndMarker.length);
+writeFileSync(readmePath, nextReadme.endsWith('\n') ? nextReadme : `${nextReadme}\n`);
+
+console.log('README.md tracker section regenerated.');

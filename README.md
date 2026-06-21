@@ -1,5 +1,29 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Ticket tracker
+
+<!-- TRACKER:START — do not edit by hand, run `npm run tracker:generate` -->
+
+**[Open the live, interactive tracker ↗](https://htmlpreview.github.io/?https://github.com/33msheehan/prediction-app-26/blob/main/tracker.html)** — click any ticket for its goal, implementation notes, acceptance criteria, tests, and dependencies.
+
+13/44 tickets done · 0 in progress · 31 not started. Legend: ✅ done &nbsp; ◐ in progress &nbsp; ○ not started.
+
+| Phase | Tickets | Phase review | |
+| --- | --- | --- | --- |
+| Phase 0 — Scaffold & infrastructure | 5/5 | ✅ Passed (Codex, 2026-06-21) | ✅ T0.1 &nbsp; ✅ T0.2 &nbsp; ✅ T0.3 &nbsp; ✅ T0.4 &nbsp; ✅ T0.5 |
+| Phase 1 — Auth & data layer | 0/4 | Not ready | ○ T1.1 &nbsp; ○ T1.2 &nbsp; ○ T1.3 &nbsp; ○ T1.4 |
+| Phase 2 — Probabilistic core (pure, client-side; build early) | 8/8 | Awaiting review | ✅ T2.1 &nbsp; ✅ T2.2 &nbsp; ✅ T2.3 &nbsp; ✅ T2.4 &nbsp; ✅ T2.5 &nbsp; ✅ T2.6 &nbsp; ✅ T2.7 &nbsp; ✅ T2.8 |
+| Phase 3 — Forecast CRUD & tree editor | 0/7 | Not ready | ○ T3.1 &nbsp; ○ T3.2 &nbsp; ○ T3.3 &nbsp; ○ T3.4 &nbsp; ○ T3.5 &nbsp; ○ T3.6 &nbsp; ○ T3.7 |
+| Phase 4 — Living forecasts: check-ins, history, update discipline | 0/6 | Not ready | ○ T4.1 &nbsp; ○ T4.2 &nbsp; ○ T4.3 &nbsp; ○ T4.4 &nbsp; ○ T4.5 &nbsp; ○ T4.6 |
+| Phase 5 — Resolution | 0/3 | Not ready | ○ T5.1 &nbsp; ○ T5.2 &nbsp; ○ T5.3 |
+| Phase 6 — Calibration loop | 0/4 | Not ready | ○ T6.1 &nbsp; ○ T6.2 &nbsp; ○ T6.3 &nbsp; ○ T6.4 |
+| Phase 7 — Co-pilot scaffold (LLM path; features deferred) | 0/2 | Not ready | ○ T7.1 &nbsp; ○ T7.2 |
+| Phase 8 — Polish, mobile-readiness, hardening | 0/5 | Not ready | ○ T8.1 &nbsp; ○ T8.2 &nbsp; ○ T8.3 &nbsp; ○ T8.4 &nbsp; ○ T8.5 |
+
+*Generated from `BUILD_PLAN.md` + `PROGRESS.md` by `scripts/generate-tracker.mjs` — last updated 2026-06-21. Do not edit this section by hand.*
+
+<!-- TRACKER:END -->
+
 ## Getting Started
 
 First, run the development server:

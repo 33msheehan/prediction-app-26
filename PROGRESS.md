@@ -8,10 +8,12 @@ This file is the lightweight coordination log for concurrent agent sessions,
   needed).
 - `PROGRESS.md` (this file) is the source of truth for ticket _status_ (the
   tables below) and the running coordination log.
-- `tracker.html` is **generated** from those two files by
-  `npm run tracker:generate` (which also runs automatically as a `prebuild`
-  step before `npm run build`, including in CI). **Never hand-edit
-  `tracker.html`** — edits will be overwritten the next time anyone builds.
+- `tracker.html` and the "Ticket tracker" section of `README.md` (between the
+  `<!-- TRACKER:START -->` / `<!-- TRACKER:END -->` comments) are **generated**
+  from those two files by `npm run tracker:generate` (which also runs
+  automatically as a `prebuild` step before `npm run build`, including in CI).
+  **Never hand-edit either of them** — edits will be overwritten the next
+  time anyone builds.
 
 ## Ticket status
 
@@ -91,11 +93,12 @@ still open.
 - Prefer separate git worktrees/branches per active ticket.
 - Claim one ticket before editing.
 - Avoid broad formatting changes.
-- **Never hand-edit `tracker.html`.** It is generated from `BUILD_PLAN.md` +
-  this file by `scripts/generate-tracker.mjs`, which runs automatically via
-  the `prebuild` npm script before every `npm run build` (including in CI).
-  Run `npm run tracker:generate` directly if you want to preview it without a
-  full build.
+- **Never hand-edit `tracker.html` or the `<!-- TRACKER:START -->` ...
+  `<!-- TRACKER:END -->` section of `README.md`.** Both are generated from
+  `BUILD_PLAN.md` + this file by `scripts/generate-tracker.mjs`, which runs
+  automatically via the `prebuild` npm script before every `npm run build`
+  (including in CI). Run `npm run tracker:generate` directly if you want to
+  preview it without a full build.
 - Treat `package.json`, `package-lock.json`, `README.md`, `BUILD_PLAN.md`,
   test/build config, schema, and migration files as coordination-sensitive.
 - Before changing Next.js code, read the relevant local docs under
