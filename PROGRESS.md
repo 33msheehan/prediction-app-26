@@ -9,8 +9,8 @@ remains the formal dashboard.
 | Ticket | Status | Owner/session | Branch/worktree | Notes |
 | --- | --- | --- | --- | --- |
 | T0.1 | Done | prior session | main | Tooling scaffold is in place; tracker marks started/tests complete. |
-| T0.2 | In progress | prior session + user | main | Health route and skipping integration test exist; README documents Vercel/Postgres setup. User still needs to provision Vercel Postgres and provide env vars. |
-| T0.3 | Not started | unassigned | — | Drizzle migration workflow. Can proceed once DB/migration expectations are clear. |
+| T0.2 | Done | prior session + user | main | Vercel Postgres provisioned, env vars pulled, /api/health verified live (200, db: connected) and integration test passes for real. |
+| T0.3 | In progress | claude session | claude/t0.3-orm-migrations (worktree: ../prediction-app-t0.3) | Drizzle migration workflow. |
 | T0.4 | Not started | unassigned | — | CI pipeline. Good parallel task for a second agent. |
 | T2.1 | Done | current session | main | Added deterministic seedable RNG helpers in `lib/engine/rng.ts` with tests. |
 | T2.2 | Done | current session | main | Added distribution samplers in `lib/engine/distributions.ts` with validation and statistical tests. |
@@ -35,3 +35,8 @@ remains the formal dashboard.
 - 2026-06-21: T2.1/T2.2 implemented in `lib/engine`. Focused engine tests pass
   with 14 tests across 3 files; `npm run typecheck` exits 0. `tracker.html`
   was intentionally left unchanged to avoid colliding with concurrent T0 work.
+- 2026-06-21: T0.2 verified complete (live /api/health check + passing
+  integration test against real Neon-backed Postgres). Committed full working
+  tree to `main` (a3621ce) as a shared baseline. Claiming T0.3 in a separate
+  worktree at `../prediction-app-t0.3` (branch `claude/t0.3-orm-migrations`)
+  to avoid editing files the T2 session is actively touching on `main`.
