@@ -14,6 +14,8 @@ remains the formal dashboard.
 | T0.4 | Not started | unassigned | — | CI pipeline. Good parallel task for a second agent. |
 | T2.1 | Done | current session | codex/t2-engine | Added deterministic seedable RNG helpers in `lib/engine/rng.ts` with tests. |
 | T2.2 | Done | current session | codex/t2-engine | Added distribution samplers in `lib/engine/distributions.ts` with validation and statistical tests. |
+| T2.3 | Done | current session | codex/t2.3-fitters | Added elicitation-to-param fitters in `lib/engine/fitters.ts` with empirical round-trip and invalid-input tests. |
+| T2.4 | Done | current session | codex/t2.4-tree-schema | Added canonical tree types, recursive Zod schema, output-type helper, and traversal utilities in `lib/engine/tree.ts`. |
 
 ## Coordination rules
 
@@ -46,3 +48,10 @@ remains the formal dashboard.
 - 2026-06-21: Merged `main` (T2.1/T2.2 work) into `claude/t0.3-orm-migrations`
   and fast-forwarded `main` to include T0.3, reconciling this log and
   `tracker.html`.
+- 2026-06-21: Merged `codex/t2-engine` into `main`, created
+  `codex/t2.3-fitters`, and completed T2.3. Focused engine tests pass with
+  23 tests across 4 files; `npm run typecheck` exits 0.
+- 2026-06-21: Created `codex/t2.4-tree-schema` and completed T2.4 with the
+  canonical tree model, shared Zod schema, output-type helper, and traversal
+  utilities in `lib/engine/tree.ts`. Engine tests now pass with 42 tests
+  across 5 files; `npm run typecheck` exits 0.
