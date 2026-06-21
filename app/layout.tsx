@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { AuthButton } from "@/components/AuthButton";
 import { Nav } from "@/components/Nav";
 import "./globals.css";
 
@@ -29,7 +30,12 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <Nav />
+        <div className="flex items-center justify-between border-b border-black/10 dark:border-white/10">
+          <Nav />
+          <div className="px-6">
+            <AuthButton />
+          </div>
+        </div>
         {children}
       </body>
     </html>
