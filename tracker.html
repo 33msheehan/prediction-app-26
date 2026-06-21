@@ -371,10 +371,10 @@
 const LAST_UPDATED = "2026-06-21";
 
 const SUMMARY = {
-  "where": "Phases 0, 1, and 2 are complete. Phase 1 is now marked passed after the user confirmed two independent LLM reviews on top of the earlier T1.1 human verification and DB-backed test coverage. Phase 3 is underway: T3.1/T3.2 are being landed together as the first forecast CRUD slice, with the create flow, initial version creation, and signed-in dashboard list implemented and local unit/RTL/typecheck/build checks green.",
+  "where": "Phases 0, 1, and 2 are complete. Phase 1 is now marked passed after the user confirmed two independent LLM reviews on top of the earlier T1.1 human verification and DB-backed test coverage. Phase 3 is underway: T3.1/T3.2 are implemented as the first forecast CRUD slice, and T3.3 now layers the tree editor shell on top: local outline editing, type conversion, add/delete/move, expand/collapse, and inline tree validation. Local unit/RTL/typecheck/build checks are green for the editor work.",
   "next": [
     "Clear the live DB harness issue that currently prevents the new T3 repository integration tests from running in this shell, then mark T3.1/T3.2 test coverage fully green.",
-    "Continue Phase 3 with the editor shell (T3.3), which now has a persisted forecast/create path and dashboard entry points to build on."
+    "Continue Phase 3 with T3.4/T3.5, wiring leaf/composite-specific editors into the new shell so structure edits can also configure distributions and combinator settings."
   ]
 };
 
@@ -989,8 +989,8 @@ const phases = [
           "reason": "Outline-editor feel (drag/reorder, clarity of inline validation messages) is a UX judgment call worth your eyes."
         },
         "progress": {
-          "started": false,
-          "testsWritten": false,
+          "started": true,
+          "testsWritten": true,
           "humanVerified": false
         }
       },
