@@ -8,16 +8,20 @@ export type AccessDecision =
   | { type: 'redirect-to-sign-in' }
   | { type: 'unauthorized' };
 
+// Matches `prefix` itself or `prefix` followed by a `/`, so e.g. '/api/health'
+// matches '/api/health/foo' but not '/api/healthcheck'.
+function matchesPrefix(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
 export function isProtectedPath(pathname: string): boolean {
-  const isProtectedPage = PROTECTED_PAGE_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  );
+  const isProtectedPage = PROTECTED_PAGE_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix));
   if (isProtectedPage) return true;
 
-  const isApi = pathname === '/api' || pathname.startsWith('/api/');
+  const isApi = matchesPrefix(pathname, '/api');
   if (!isApi) return false;
 
-  return !PUBLIC_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  return !PUBLIC_API_PREFIXES.some((prefix) => matchesPrefix(pathname, prefix));
 }
 
 export function decideAccess(pathname: string, isAuthed: boolean): AccessDecision {

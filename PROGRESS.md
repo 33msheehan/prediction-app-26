@@ -56,7 +56,7 @@ Review status vocabulary: `not_ready`, `pending`, `in_review`,
 | Phase   | Review status | Reviewer | Reviewed at | Notes                                                                                                                                                                                                                                                                              |
 | ------- | ------------- | -------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Phase 0 | passed        | Codex    | 2026-06-21  | Codex's independent review passed T0.1, T0.2, T0.4, T0.5 and returned T0.3 to changes requested solely because the required ephemeral-Neon migration CI step was absent. That step has since been implemented and fixed (see T0.3 above); remote CI is green. Phase 0 is complete. |
-| Phase 1 | pending       |          |             | Ready for review. All four tickets (T1.1–T1.4) done, tests green against the real Neon DB, and T1.1 is now human-verified (user confirmed the GitHub OAuth sign-in flow end-to-end locally and in production). Needs an independent reviewer who implemented no T1.x ticket — left PR #5 open, unmerged, for Codex.                                                                                                                                                                    |
+| Phase 1 | pending       |          |             | Ready for re-review. Two PR review comments (P1: `/api/health`/`/api/auth` exemption matched unrelated routes like `/api/healthcheck` by prefix; P2: route-guard tests bypassed the real `proxy.ts`/Auth.js protection layer) were found and fixed — see the coordination log. All four tickets (T1.1–T1.4) done, tests green against the real Neon DB, T1.1 human-verified. Needs an independent reviewer who implemented no T1.x ticket — left PR #5 open, unmerged, for Codex.                                                                                                                                                                    |
 | Phase 2 | passed        | Claude   | 2026-06-21  | Independently reviewed T2.1–T2.8 (implemented by Codex) against `BUILD_PLAN.md` §4: read all 8 `lib/engine` source files, verified all 9 leaf distributions, all 7 combinators, all 5 `validateTree()` rules, and the runner's analytic anchors. Found and fixed two issues on `codex/phase-2-independent-review`: (1) the triangular/PERT schema allowed `min === max` while the elicitation fitter rejected it — schema now requires `min < max`; (2) `validateTree()` had no duplicate-node-id check, which the data model relies on for per-node history reconstruction — added `validateUniqueIds()`. Added 3 regression tests. Reran lint, typecheck, full suite (78 passed, 2 skipped), and `next build` — all clean. |
 | Phase 3 | not_ready     |          |             |                                                                                                                                                                                                                                                                                    |
 | Phase 4 | not_ready     |          |             |                                                                                                                                                                                                                                                                                    |
@@ -300,3 +300,23 @@ all clean.
   phase is now waiting on an independent reviewer (Codex) per
   `AGENTS.md`'s rule that the implementing agent can't review its own
   phase. PR #5 remains open, unmerged.
+- 2026-06-21: Two PR review comments came in on `lib/auth/route-guard.ts`/
+  `route-guard.test.ts`. Both addressed:
+  - **[P1]** `isProtectedPath()`'s public-API exemption used
+    `pathname.startsWith(prefix)` against `/api/health` and `/api/auth`,
+    so `/api/healthcheck` and `/api/authors` were incorrectly treated as
+    public (prefix match, not path-segment match). Fixed by reusing the
+    same exact-or-slash-boundary `matchesPrefix()` helper the page-prefix
+    check already used. Added a regression test
+    (`/api/healthcheck`/`/api/authors` must stay protected).
+  - **[P2]** The existing route-guard tests only covered the pure
+    `decideAccess`/`isProtectedPath` functions, never the actual
+    `proxy.ts` protection layer or Auth.js's `auth()` wrapper. Added
+    `proxy.test.ts`: mocks `@/auth`'s `auth()` higher-order function to
+    inject a controlled `req.auth` (avoiding the need for a real signed
+    JWT cookie) while exercising proxy.ts's real switch statement and
+    `NextResponse` construction — asserts the 307 redirect-to-sign-in
+    (with `callbackUrl`), the 401 JSON body, and the `x-middleware-next`
+    pass-through header for authed/public requests.
+  - Verification: 114 tests pass (up from 108), lint/typecheck/build all
+    clean. Pushed to PR #5, still open and unmerged, awaiting re-review.

@@ -22,6 +22,11 @@ describe('isProtectedPath', () => {
     expect(isProtectedPath('/api/auth/callback/github')).toBe(false);
   });
 
+  it('does not exempt unrelated routes that merely share a prefix with a public route', () => {
+    expect(isProtectedPath('/api/healthcheck')).toBe(true);
+    expect(isProtectedPath('/api/authors')).toBe(true);
+  });
+
   it('leaves public pages unprotected', () => {
     expect(isProtectedPath('/')).toBe(false);
   });
