@@ -130,10 +130,10 @@ const LAST_UPDATED = "2026-06-21";
 
 // Edit this alongside ticket status changes — keep it short (2-4 sentences + 3-5 next steps).
 const SUMMARY = {
-  where: "T0.1 and T0.2 done. Vercel project linked, Postgres (Neon) provisioned, POSTGRES_URL pulled into .env.local — /api/health verified live (200, { ok: true, db: 'connected' }) and the integration test passes for real against it. T2.1, T2.2, T2.3, and T2.4 are done: deterministic RNG, all nine distribution samplers, elicitation-to-param fitters, and the canonical tree schema with traversal helpers. DB strategy decided (Neon branches); auth provider still open. Click any ticket below to expand its goal, acceptance criteria, tests, dependencies, and verification checklist.",
+  where: "T0.1 and T0.2 done. Vercel project linked, Postgres (Neon) provisioned, POSTGRES_URL pulled into .env.local — /api/health verified live (200, { ok: true, db: 'connected' }) and the integration test passes for real against it. T2.1, T2.2, T2.3, T2.4, and T2.5 are done: deterministic RNG, all nine distribution samplers, elicitation-to-param fitters, the canonical tree schema, and composite evaluation helpers. DB strategy decided (Neon branches); auth provider still open. Click any ticket below to expand its goal, acceptance criteria, tests, dependencies, and verification checklist.",
   next: [
     "T0.3 (Drizzle ORM & migrations) and T0.4 (CI pipeline) can continue in parallel — both depend only on T0.1/T0.2",
-    "T2.5 (Combinator evaluation) is the next engine task",
+    "T2.6 (Tree validation) is the next engine task",
     "T0.5 (App shell & routing skeleton) also only depends on T0.1 and can run alongside",
     "Decide auth provider (GitHub OAuth vs credentials) before starting T1.1",
   ],
@@ -172,7 +172,7 @@ const phases = [
       acceptance: ["A PR with a failing test/types is blocked", "A clean PR passes"],
       tests: ["The pipeline itself (verify a deliberately broken branch fails)"],
       dependsOn: ["T0.1"], human: { needed: true, reason: "Needs a GitHub repo you own with Actions enabled — I can write the workflow file but can't create/push to your repo or watch a real PR run without you." },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
+      progress: { started: true, testsWritten: true, humanVerified: false } },
     { id: "T0.5", title: "App shell & routing skeleton",
       goal: "Navigable empty screens.",
       implementation: ["Layout, nav, and stub routes: /, /forecasts/new, /forecasts/[id], /forecasts/[id]/check-in, /calibration"],
