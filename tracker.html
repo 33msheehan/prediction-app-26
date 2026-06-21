@@ -1,613 +1,1910 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<title>Forecast Workbench — ticket tracker</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<style>
-  :root {
-    --bg: #ffffff;
-    --bg-secondary: #f7f7f7;
-    --text: #1a1a1a;
-    --text-secondary: #666;
-    --text-tertiary: #999;
-    --border: rgba(0,0,0,0.1);
-    /* Blue/orange/gray palette — distinguishable under deuteranopia & protanopia (avoids red/green). */
-    --done: #0a5dc2;
-    --done-bg: #e3eefc;
-    --progress: #c1620a;
-    --progress-bg: #fbe9d9;
-    --todo: #6b6b6b;
-    --todo-bg: #ececec;
-    --mono: "SF Mono", Menlo, Consolas, monospace;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #1a1a1a;
-      --bg-secondary: #242424;
-      --text: #eaeaea;
-      --text-secondary: #aaa;
-      --text-tertiary: #777;
-      --border: rgba(255,255,255,0.12);
-      --done: #5b9eef;
-      --done-bg: #1c2c40;
-      --progress: #e0954c;
-      --progress-bg: #3a2a18;
-      --todo: #9a9a9a;
-      --todo-bg: #2c2c2c;
-    }
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    padding: 2rem 1.5rem 4rem;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    line-height: 1.5;
-  }
-  .wrap { max-width: 880px; margin: 0 auto; }
-  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
-  .subtitle { font-size: 13px; color: var(--text-secondary); margin-bottom: 1.5rem; }
-  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.5rem; }
-  .stat { background: var(--bg-secondary); border-radius: 10px; padding: 12px 14px; }
-  .stat .label { font-size: 12px; color: var(--text-secondary); }
-  .stat .value { font-size: 22px; font-weight: 600; margin-top: 2px; }
-  .summary { background: var(--bg-secondary); border-radius: 12px; padding: 14px 16px; margin-bottom: 1.5rem; }
-  .summary .heading { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
-  .summary p { font-size: 13px; color: var(--text-secondary); margin: 0 0 10px; }
-  .summary ol { margin: 0; padding-left: 18px; font-size: 13px; }
-  .summary li { margin-bottom: 4px; }
-  .summary li b { font-family: var(--mono); font-weight: 600; color: var(--text); }
-  .legend { display: flex; gap: 16px; font-size: 12px; color: var(--text-secondary); margin-bottom: 1.5rem; align-items: center; }
-  .legend-item { display: flex; align-items: center; gap: 6px; }
-  .icon { width: 16px; height: 16px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
-  .icon svg { width: 100%; height: 100%; }
-  .controls { display: flex; gap: 8px; margin-bottom: 1.5rem; }
-  .controls input { flex: 1; font-size: 13px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
-  .controls input:focus { outline: 2px solid var(--progress); outline-offset: -1px; }
-  .phase { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
-  .phase-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; cursor: pointer; }
-  .phase-header .name { font-size: 14px; font-weight: 600; }
-  .phase-header .count { font-size: 12px; color: var(--text-secondary); }
-  .phase-review { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); margin: -2px 0 9px; }
-  .phase-review strong { color: var(--text); font-weight: 600; }
-  .phase-bar { height: 3px; background: var(--todo); border-radius: 2px; margin-bottom: 10px; overflow: hidden; }
-  .phase-bar > div { height: 100%; background: var(--done); }
-  .tickets { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 6px; }
-  .ticket { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 6px 8px; border-radius: 6px; border-left: 3px solid var(--todo); background: var(--todo-bg); }
-  .ticket.progress { border-left-color: var(--progress); background: var(--progress-bg); }
-  .ticket.done { border-left-color: var(--done); background: var(--done-bg); }
-  .ticket .id { font-family: var(--mono); color: var(--text-secondary); min-width: 36px; flex-shrink: 0; }
-  .ticket .title { color: var(--text); }
-  .ticket.done .title { color: var(--text-secondary); text-decoration: line-through; }
-  .ticket .icon { color: var(--todo); }
-  .ticket.progress .icon { color: var(--progress); }
-  .ticket.done .icon { color: var(--done); }
-  .ticket { width: 100%; border: none; cursor: pointer; font-family: inherit; text-align: left; }
-  .ticket .chevron { margin-left: auto; font-size: 11px; color: var(--text-tertiary); transition: transform 0.15s; flex-shrink: 0; }
-  .ticket[aria-expanded="true"] .chevron { transform: rotate(90deg); }
-  .ticket-wrap { grid-column: 1 / -1; }
-  .tickets.has-detail { grid-template-columns: 1fr; }
-  .detail { padding: 10px 12px 4px 30px; margin: 2px 0 6px; border-left: 3px solid var(--border); font-size: 13px; color: var(--text-secondary); }
-  .detail h4 { font-size: 12px; font-weight: 600; color: var(--text); margin: 10px 0 4px; }
-  .detail h4:first-child { margin-top: 0; }
-  .detail ul { margin: 0 0 2px; padding-left: 16px; }
-  .detail li { margin-bottom: 2px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
-  .chip { font-family: var(--mono); font-size: 11px; background: var(--bg-secondary); border-radius: 4px; padding: 2px 6px; color: var(--text-secondary); }
-  .checklist { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
-  .check-item { display: flex; align-items: flex-start; gap: 6px; }
-  .check-item .icon { width: 14px; height: 14px; margin-top: 1px; }
-  .check-item.na { opacity: 0.55; }
-  .check-reason { font-size: 12px; color: var(--text-tertiary); margin: -2px 0 0 20px; }
-  .hidden { display: none !important; }
-  footer { font-size: 12px; color: var(--text-tertiary); margin-top: 2rem; text-align: center; }
-</style>
-</head>
-<body>
-<div class="wrap">
-  <h1>Forecast Workbench — ticket tracker</h1>
-  <div class="subtitle">Live view of <code>BUILD_PLAN.md</code> tickets. Edited directly by Claude as work progresses — reload to see changes.</div>
+  <head>
+    <meta charset="utf-8" />
+    <title>Forecast Workbench — ticket tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --bg: #ffffff;
+        --bg-secondary: #f7f7f7;
+        --text: #1a1a1a;
+        --text-secondary: #666;
+        --text-tertiary: #999;
+        --border: rgba(0, 0, 0, 0.1);
+        /* Blue/orange/gray palette — distinguishable under deuteranopia & protanopia (avoids red/green). */
+        --done: #0a5dc2;
+        --done-bg: #e3eefc;
+        --progress: #c1620a;
+        --progress-bg: #fbe9d9;
+        --todo: #6b6b6b;
+        --todo-bg: #ececec;
+        --mono: 'SF Mono', Menlo, Consolas, monospace;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #1a1a1a;
+          --bg-secondary: #242424;
+          --text: #eaeaea;
+          --text-secondary: #aaa;
+          --text-tertiary: #777;
+          --border: rgba(255, 255, 255, 0.12);
+          --done: #5b9eef;
+          --done-bg: #1c2c40;
+          --progress: #e0954c;
+          --progress-bg: #3a2a18;
+          --todo: #9a9a9a;
+          --todo-bg: #2c2c2c;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 2rem 1.5rem 4rem;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        line-height: 1.5;
+      }
+      .wrap {
+        max-width: 880px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 20px;
+        font-weight: 600;
+        margin: 0 0 4px;
+      }
+      .subtitle {
+        font-size: 13px;
+        color: var(--text-secondary);
+        margin-bottom: 1.5rem;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin-bottom: 1.5rem;
+      }
+      .stat {
+        background: var(--bg-secondary);
+        border-radius: 10px;
+        padding: 12px 14px;
+      }
+      .stat .label {
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+      .stat .value {
+        font-size: 22px;
+        font-weight: 600;
+        margin-top: 2px;
+      }
+      .summary {
+        background: var(--bg-secondary);
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-bottom: 1.5rem;
+      }
+      .summary .heading {
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+      .summary p {
+        font-size: 13px;
+        color: var(--text-secondary);
+        margin: 0 0 10px;
+      }
+      .summary ol {
+        margin: 0;
+        padding-left: 18px;
+        font-size: 13px;
+      }
+      .summary li {
+        margin-bottom: 4px;
+      }
+      .summary li b {
+        font-family: var(--mono);
+        font-weight: 600;
+        color: var(--text);
+      }
+      .legend {
+        display: flex;
+        gap: 16px;
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-bottom: 1.5rem;
+        align-items: center;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .icon {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .icon svg {
+        width: 100%;
+        height: 100%;
+      }
+      .controls {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 1.5rem;
+      }
+      .controls input {
+        flex: 1;
+        font-size: 13px;
+        padding: 7px 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+      }
+      .controls input:focus {
+        outline: 2px solid var(--progress);
+        outline-offset: -1px;
+      }
+      .phase {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-bottom: 12px;
+      }
+      .phase-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 8px;
+        cursor: pointer;
+      }
+      .phase-header .name {
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .phase-header .count {
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+      .phase-review {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin: -2px 0 9px;
+      }
+      .phase-review strong {
+        color: var(--text);
+        font-weight: 600;
+      }
+      .phase-bar {
+        height: 3px;
+        background: var(--todo);
+        border-radius: 2px;
+        margin-bottom: 10px;
+        overflow: hidden;
+      }
+      .phase-bar > div {
+        height: 100%;
+        background: var(--done);
+      }
+      .tickets {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 6px;
+      }
+      .ticket {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        padding: 6px 8px;
+        border-radius: 6px;
+        border-left: 3px solid var(--todo);
+        background: var(--todo-bg);
+      }
+      .ticket.progress {
+        border-left-color: var(--progress);
+        background: var(--progress-bg);
+      }
+      .ticket.done {
+        border-left-color: var(--done);
+        background: var(--done-bg);
+      }
+      .ticket .id {
+        font-family: var(--mono);
+        color: var(--text-secondary);
+        min-width: 36px;
+        flex-shrink: 0;
+      }
+      .ticket .title {
+        color: var(--text);
+      }
+      .ticket.done .title {
+        color: var(--text-secondary);
+        text-decoration: line-through;
+      }
+      .ticket .icon {
+        color: var(--todo);
+      }
+      .ticket.progress .icon {
+        color: var(--progress);
+      }
+      .ticket.done .icon {
+        color: var(--done);
+      }
+      .ticket {
+        width: 100%;
+        border: none;
+        cursor: pointer;
+        font-family: inherit;
+        text-align: left;
+      }
+      .ticket .chevron {
+        margin-left: auto;
+        font-size: 11px;
+        color: var(--text-tertiary);
+        transition: transform 0.15s;
+        flex-shrink: 0;
+      }
+      .ticket[aria-expanded='true'] .chevron {
+        transform: rotate(90deg);
+      }
+      .ticket-wrap {
+        grid-column: 1 / -1;
+      }
+      .tickets.has-detail {
+        grid-template-columns: 1fr;
+      }
+      .detail {
+        padding: 10px 12px 4px 30px;
+        margin: 2px 0 6px;
+        border-left: 3px solid var(--border);
+        font-size: 13px;
+        color: var(--text-secondary);
+      }
+      .detail h4 {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text);
+        margin: 10px 0 4px;
+      }
+      .detail h4:first-child {
+        margin-top: 0;
+      }
+      .detail ul {
+        margin: 0 0 2px;
+        padding-left: 16px;
+      }
+      .detail li {
+        margin-bottom: 2px;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 2px;
+      }
+      .chip {
+        font-family: var(--mono);
+        font-size: 11px;
+        background: var(--bg-secondary);
+        border-radius: 4px;
+        padding: 2px 6px;
+        color: var(--text-secondary);
+      }
+      .checklist {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        margin-top: 4px;
+      }
+      .check-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .check-item .icon {
+        width: 14px;
+        height: 14px;
+        margin-top: 1px;
+      }
+      .check-item.na {
+        opacity: 0.55;
+      }
+      .check-reason {
+        font-size: 12px;
+        color: var(--text-tertiary);
+        margin: -2px 0 0 20px;
+      }
+      .hidden {
+        display: none !important;
+      }
+      footer {
+        font-size: 12px;
+        color: var(--text-tertiary);
+        margin-top: 2rem;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Forecast Workbench — ticket tracker</h1>
+      <div class="subtitle">
+        Generated from <code>BUILD_PLAN.md</code> (scope) and <code>PROGRESS.md</code> (status) by
+        <code>scripts/generate-tracker.mjs</code>. Do not edit this file by hand — run
+        <code>npm run tracker:generate</code> (or <code>npm run build</code>) to refresh it.
+      </div>
 
-  <div class="stats" id="stats"></div>
+      <div class="stats" id="stats"></div>
 
-  <div class="summary" id="summary"></div>
+      <div class="summary" id="summary"></div>
 
-  <div class="legend" id="legend"></div>
+      <div class="legend" id="legend"></div>
 
-  <div class="controls">
-    <input type="text" id="search" placeholder="Filter by id or title..." />
-  </div>
+      <div class="controls">
+        <input type="text" id="search" placeholder="Filter by id or title..." />
+      </div>
 
-  <div id="board"></div>
+      <div id="board"></div>
 
-  <footer>Last updated: <span id="updated"></span></footer>
-</div>
+      <footer>Last updated: <span id="updated"></span></footer>
+    </div>
 
-<script>
-// ---- Single source of truth for ticket state. Edit this array directly. ----
+    <script>
+      // ---- GENERATED DATA START — do not edit by hand. ----
+// Source: BUILD_PLAN.md (scope) + PROGRESS.md (status), merged by
+// scripts/generate-tracker.mjs. Re-run `npm run tracker:generate` to refresh,
+// or just `npm run build` (it runs as a prebuild step).
 // status: "todo" | "progress" | "done"
 const LAST_UPDATED = "2026-06-21";
 
-// Edit this alongside ticket status changes — keep it short (2-4 sentences + 3-5 next steps).
 const SUMMARY = {
-  where: "Phase 0 independent review found T0.1, T0.2, T0.4, and T0.5 complete, but returned T0.3 to changes requested: its required ephemeral-Neon migration CI step is absent and both DB tests skip in remote CI. Phase 0 therefore remains incomplete until T0.3 is fixed and re-reviewed. Phase 2 implementation is complete (T2.1–T2.8, all 74 engine+app tests pass) and is awaiting its own independent review. T1.1 (auth) is not started; DB strategy is Neon branches and the auth provider is still open.",
-  next: [
-    "T1.1 (Authentication) is next — needs you to choose/create an OAuth provider first",
-    "T1.2 (Schema & migrations) can start once T1.1's provider decision unblocks the dependency chain",
-    "Independent agent: review Phase 2 and record reviewer, date, commands, findings, and verdict in PROGRESS.md before setting its phaseReview status to passed",
-    "Fix T0.3 by provisioning an ephemeral Neon branch in CI, applying migrations twice, running the DB tests, and always deleting the branch",
-    "After T0.3's remote CI passes, ask Codex to re-review Phase 0 before changing its phase gate to passed",
-  ],
+  "where": "Phase 0 (scaffold & infrastructure) is complete: all five tickets passed independent review, including T0.3 after fixing its CI remediation (the test step now uses a pooled Neon connection string, as <code>@vercel/postgres</code> requires). Phase 2 (probabilistic core) is fully implemented (T2.1–T2.8, all 74 engine+app tests pass) and awaiting its own independent review. T1.1 (auth) is not started; DB strategy is Neon branches and the auth provider is still open.",
+  "next": [
+    "Independent agent: review Phase 2 and record reviewer, date, commands, and findings in the table above before setting its phase review status to <code>passed</code>.",
+    "T1.1 (Authentication) is next — needs the user to choose/create an OAuth provider first.",
+    "T1.2 (Schema & migrations) can start once T1.1's provider decision unblocks the dependency chain."
+  ]
 };
 
-// Each ticket: goal/implementation/acceptance/tests/dependsOn mirror BUILD_PLAN.md §8 verbatim in substance.
-// human.needed flags tickets that need YOUR action (credentials, accounts, visual/UX/device judgment, irreversible data ops) —
-// not just "this touches a DB". progress flags are hand-set by Claude as work lands; "complete" is always derived, never stored,
-// so the checklist can't drift out of sync with itself. Each phase also has an independent review gate.
 const phases = [
-  { name: "Phase 0 — Scaffold & infrastructure", phaseReview: { status: "changes_requested", reviewer: "Codex", reviewedAt: "2026-06-21" }, tickets: [
-    { id: "T0.1", title: "Initialise project & tooling",
-      goal: "Working Next.js + TS repo with linting, formatting, and test runners wired.",
-      implementation: ["create-next-app (App Router, TS)", "Add ESLint, Prettier, Vitest, RTL, Playwright", "npm scripts: dev/build/lint/typecheck/test/test:e2e"],
-      acceptance: ["npm run dev serves a placeholder page", "lint, typecheck, test all run and pass on an empty smoke test"],
-      tests: ["One trivial Vitest smoke test", "One Playwright test that loads / and asserts a heading"],
-      dependsOn: [], human: { needed: false },
-      progress: { started: true, testsWritten: true, humanVerified: false } },
-    { id: "T0.2", title: "Vercel project & Postgres provisioning",
-      goal: "Deployable skeleton with a connected database.",
-      implementation: ["Create Vercel project", "Provision Vercel Postgres", "Wire env vars locally (.env.local) and in Vercel", "Document in README"],
-      acceptance: ["App deploys to a Vercel preview URL", "/api/health returns { ok: true, db: 'connected' } after a trivial SELECT 1"],
-      tests: ["Integration test hitting /api/health against a test DB returns db-connected"],
-      dependsOn: ["T0.1"], human: { needed: true, reason: "Requires logging into Vercel/Neon to create the project and database and supplying the connection string — accounts and credentials only you hold." },
-      progress: { started: true, testsWritten: true, humanVerified: true } },
-    { id: "T0.3", title: "ORM & migrations",
-      goal: "Drizzle configured with migration workflow.",
-      implementation: ["Install Drizzle + driver", "Config drizzle.config.ts", "db:generate / db:migrate scripts", "Empty initial migration"],
-      acceptance: ["Running migrations against a fresh DB succeeds and is idempotent"],
-      tests: ["CI step applies migrations to an ephemeral Neon branch and reports success"],
-      dependsOn: ["T0.2"], human: { needed: true, reason: "Provisioning a Neon API token (your account) was needed to create/destroy a real ephemeral branch for verification." },
-      progress: { started: true, testsWritten: false, humanVerified: true } },
-    { id: "T0.4", title: "CI pipeline",
-      goal: "PRs gated on quality.",
-      implementation: ["GitHub Actions workflow: install, lint, typecheck, test, build", "Optionally test:e2e on a schedule"],
-      acceptance: ["A PR with a failing test/types is blocked", "A clean PR passes"],
-      tests: ["The pipeline itself (verify a deliberately broken branch fails)"],
-      dependsOn: ["T0.1"], human: { needed: true, reason: "Needed your GitHub account to push the repo, enable Actions, and set branch protection — verified via the GitHub API: origin/main exists, one CI run completed successfully, and main reports protected: true." },
-      progress: { started: true, testsWritten: true, humanVerified: true } },
-    { id: "T0.5", title: "App shell & routing skeleton",
-      goal: "Navigable empty screens.",
-      implementation: ["Layout, nav, and stub routes: /, /forecasts/new, /forecasts/[id], /forecasts/[id]/check-in, /calibration"],
-      acceptance: ["All routes render a titled placeholder", "Nav links work"],
-      tests: ["RTL renders layout with nav", "Playwright navigates between routes"],
-      dependsOn: ["T0.1"], human: { needed: false },
-      progress: { started: true, testsWritten: true, humanVerified: false } },
-  ]},
-  { name: "Phase 1 — Auth & data layer", phaseReview: { status: "not_ready", reviewer: null, reviewedAt: null }, tickets: [
-    { id: "T1.1", title: "Authentication",
-      goal: "Logged-in, user-scoped app.",
-      implementation: ["Auth.js with one provider", "Protect all /forecasts/*, /calibration, /api/* (except health)", "Expose getCurrentUser() server helper"],
-      acceptance: ["Unauthed access to protected routes redirects to sign-in", "Authed user has a stable id"],
-      tests: ["Protected route 401/redirect when unauthed", "Succeeds when authed (mocked session)"],
-      dependsOn: ["T0.5"], human: { needed: true, reason: "Choosing/creating the OAuth provider (e.g. a GitHub OAuth app) and supplying its client id/secret requires your accounts and decisions." },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T1.2", title: "Schema & migrations (users, forecasts, versions)",
-      goal: "Persisted domain model from §5.",
-      implementation: ["Drizzle tables for users, forecasts, forecast_versions", "Migration", "Indexes: forecasts(userId,status), forecast_versions(forecastId,versionNo)"],
-      acceptance: ["Tables created; FKs enforced", "Can insert/select a forecast + version by hand"],
-      tests: ["Insert user→forecast→version", "FK violation rejected", "versionNo uniqueness per forecast"],
-      dependsOn: ["T0.3", "T1.1"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T1.3", title: "Data-access layer + shared types",
-      goal: "Type-safe, user-scoped CRUD.",
-      implementation: ["Repository functions: createForecast, getForecast, listForecasts, appendVersion, resolveForecast — always filtered by userId", "Zod schemas for Tree and all node params (shared front/back)"],
-      acceptance: ["No repository function can return another user's data", "Tree Zod schema rejects malformed trees (bad type, bad arity)"],
-      tests: ["Zod tree validation: valid + each invalid case from §4.3", "Repo tests confirming user isolation"],
-      dependsOn: ["T1.2"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T1.4", title: "Seed & DB test harness",
-      goal: "Reproducible local/test data.",
-      implementation: ["Seed script: demo user + one sample binary forecast with a small tree", "Test-DB setup/teardown helpers (Neon branch or local Postgres)"],
-      acceptance: ["npm run seed populates a runnable example", "Tests can spin a clean DB"],
-      tests: ["Harness self-test (seed → query → assert shape)"],
-      dependsOn: ["T1.3"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-  ]},
-  { name: "Phase 2 — Probabilistic core", phaseReview: { status: "pending", reviewer: null, reviewedAt: null }, tickets: [
-    { id: "T2.1", title: "Seedable RNG & sampling utilities",
-      goal: "Deterministic randomness.",
-      implementation: ["Wrap a seedable PRNG", "Helper to create independent streams", "Ban bare Math.random via lint rule"],
-      acceptance: ["Same seed → identical sequence", "Different seeds → different"],
-      tests: ["Determinism test", "Basic uniformity sanity (mean ≈ 0.5 over large N)"],
-      dependsOn: ["T0.1"], human: { needed: false },
-      progress: { started: true, testsWritten: true, humanVerified: false } },
-    { id: "T2.2", title: "Distribution samplers",
-      goal: "All nine distributions in §4.2.",
-      implementation: ["Implement each per §6.1", "Document algorithm limits in code (e.g. Poisson/Knuth)"],
-      acceptance: ["Each sampler's empirical mean/variance match theory within tolerance at large N"],
-      tests: ["Per-distribution statistical tests (seeded): mean & variance within tolerance", "Range constraints (Beta ∈ [0,1], Poisson ∈ ℤ≥0, etc.)"],
-      dependsOn: ["T2.1"], human: { needed: false },
-      progress: { started: true, testsWritten: true, humanVerified: false } },
-    { id: "T2.3", title: "Elicitation → parameter fitters",
-      goal: "Human inputs → fitted params (§6.2).",
-      implementation: ["Normal/Lognormal quantile fit", "Triangular/PERT 3-point", "Beta (mean+ν, pseudo-counts)", "Poisson"],
-      acceptance: ["Fitting then sampling recovers the input quantiles within tolerance", "Invalid inputs (e.g. P10 > P90, mode outside [min,max]) throw clear errors"],
-      tests: ["Round-trip tests per fitter", "Invalid-input tests"],
-      dependsOn: ["T2.2"], human: { needed: false },
-      progress: { started: true, testsWritten: true, humanVerified: false } },
-    { id: "T2.4", title: "Tree types & Zod schema",
-      goal: "Canonical Tree representation (§4.4).",
-      implementation: ["Types + Zod schema", "Helpers: computeOutputType(node), traversal"],
-      acceptance: ["Output type of every node type computed correctly"],
-      tests: ["Output-type tests across all node types"],
-      dependsOn: ["T0.1"], human: { needed: false },
-      progress: { started: true, testsWritten: true, humanVerified: false } },
-    { id: "T2.5", title: "Combinator evaluation",
-      goal: "Deterministic per-trial evaluation of composites (§4.2).",
-      implementation: ["and/or/not/k_of_n/count_true/sum/threshold"],
-      acceptance: ["Exact truth-table / arithmetic behaviour"],
-      tests: ["Truth tables for boolean combinators", "k_of_n boundary cases", "threshold for each operator", "sum/count_true arithmetic"],
-      dependsOn: ["T2.4"], human: { needed: false },
-      progress: { started: true, testsWritten: true, humanVerified: false } },
-    { id: "T2.6", title: "Tree validation",
-      goal: "Enforce §4.3.",
-      implementation: ["validateTree(tree) -> {valid, errors[]} checking root-boolean, child-type matching, arity, param ranges"],
-      acceptance: ["Every invalid case yields a specific, human-readable error", "Valid trees pass"],
-      tests: ["One test per validation rule (pass + fail)"],
-      dependsOn: ["T2.4", "T2.5"], human: { needed: false },
-      progress: { started: true, testsWritten: true, humanVerified: false } },
-    { id: "T2.7", title: "Monte Carlo runner",
-      goal: "runForecast (§6.3).",
-      implementation: ["DFS sample + evaluate", "Aggregate p, se, ci95", "Optional nodeSummaries"],
-      acceptance: ["Matches all analytic anchors in §6.4 within 3·SE", "Reproducible under fixed seed"],
-      tests: ["The §6.4 anchor suite", "Determinism test", "A multi-level mixed tree against an independently computed expectation"],
-      dependsOn: ["T2.2", "T2.3", "T2.5", "T2.6"], human: { needed: false },
-      progress: { started: true, testsWritten: true, humanVerified: false } },
-    { id: "T2.8", title: "Performance guardrails & benchmark",
-      goal: "Keep it snappy (§6.5).",
-      implementation: ["Cap trials/node count", "Micro-benchmark a representative tree"],
-      acceptance: ["Representative headline recompute < 100ms in a browser-like env at default N"],
-      tests: ["Benchmark test asserting a time budget", "Cap-enforcement tests"],
-      dependsOn: ["T2.7"], human: { needed: false },
-      progress: { started: true, testsWritten: true, humanVerified: false } },
-  ]},
-  { name: "Phase 3 — Forecast CRUD & tree editor", phaseReview: { status: "not_ready", reviewer: null, reviewedAt: null }, tickets: [
-    { id: "T3.1", title: "Create-forecast flow",
-      goal: "Make a new binary forecast.",
-      implementation: ["Form: title, description, (binary fixed for v1), cadence config (none / interval-days / specific-dates)", "Persist initial forecast + source:'initial' version"],
-      acceptance: ["Submitting creates a forecast owned by the user and lands on its editor"],
-      tests: ["Integration: creation persists, user-scoped", "Component test for the form", "Cadence validation tests"],
-      dependsOn: ["T1.3", "T0.5"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T3.2", title: "Dashboard / forecast list",
-      goal: "See and open forecasts; spot what needs review.",
-      implementation: ["List of the user's forecasts with headline, status, and a \"due for review\" badge from cadence + latest version time"],
-      acceptance: ["Only the user's forecasts show", "Overdue ones are flagged", "Clicking opens the forecast"],
-      tests: ["Due-ness computation unit tests (interval & date-based, edge cases)", "RTL list rendering", "User-isolation test"],
-      dependsOn: ["T3.1"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T3.3", title: "Tree editor shell (outline)",
-      goal: "Build/edit the tree structure.",
-      implementation: ["Nested indented outline", "Add child (leaf/composite + type), rename, delete, reorder", "Expand/collapse", "Live validateTree feedback inline"],
-      acceptance: ["Can construct an arbitrary valid tree", "Invalid wiring is blocked with a clear message", "Root stays boolean"],
-      tests: ["Component tests for add/delete/move/rename", "Invalid-wiring rejection test"],
-      dependsOn: ["T2.4", "T2.6", "T3.1"], human: { needed: true, reason: "Outline-editor feel (drag/reorder, clarity of inline validation messages) is a UX judgment call worth your eyes." },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T3.4", title: "Leaf node editor + distribution preview",
-      goal: "Configure a distribution in human terms and see it.",
-      implementation: ["Per leaf type, the right elicitation inputs (quantiles / three-point / p / pseudo-counts)", "On change, fit params and render a histogram preview + implied P10/P50/P90"],
-      acceptance: ["Editing inputs updates the preview", "Implied quantiles match the fitter", "Bad inputs show errors, not crashes"],
-      tests: ["Component tests per leaf type", "Preview reflects fitted params", "Error-state tests"],
-      dependsOn: ["T2.3", "T3.3"], human: { needed: true, reason: "This is the 'good-habits' feature — whether the preview actually makes you confront your tails is your call, not a unit test's." },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T3.5", title: "Composite node editor",
-      goal: "Configure combinators.",
-      implementation: ["k_of_n sets k; threshold sets op + value; others need only children", "Show output type"],
-      acceptance: ["Config persists into the tree", "k_of_n enforces 1 ≤ k ≤ n", "threshold requires a numeric child"],
-      tests: ["Component tests", "Constraint tests"],
-      dependsOn: ["T3.3"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T3.6", title: "Live headline in editor",
-      goal: "Immediate feedback as the model changes.",
-      implementation: ["On any valid edit, run runForecast (debounced) client-side", "Show p as a percentage with ±SE / 95% CI", "Disable/grey when tree invalid"],
-      acceptance: ["Headline updates within the debounce window", "CI shown", "Invalid tree shows guidance not a number"],
-      tests: ["Component test (edit → headline changes)", "CI displayed", "Invalid-state handling"],
-      dependsOn: ["T2.7", "T3.3", "T3.4", "T3.5"], human: { needed: true, reason: "Whether the debounce/recompute actually feels snappy in a real browser is worth confirming yourself." },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T3.7", title: "Persist version (save)",
-      goal: "Save the tree as an immutable version with its computed headline.",
-      implementation: ["Save appends a forecast_versions row (tree, headlineP, headlineSE, trials, source:'edit')", "Update currentVersionId", "Reload latest on open"],
-      acceptance: ["Saving creates exactly one new version", "Reopening shows the latest tree + headline", "Server re-validates the tree before insert"],
-      tests: ["Integration: save → version row with correct headline within tolerance; server rejects invalid tree", "Reload test"],
-      dependsOn: ["T1.3", "T3.6"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-  ]},
-  { name: "Phase 4 — Living forecasts", phaseReview: { status: "not_ready", reviewer: null, reviewedAt: null }, tickets: [
-    { id: "T4.1", title: "Version history wiring",
-      goal: "Expose the append-only timeline.",
-      implementation: ["Query all versions for a forecast (ordered)", "Derive headline trajectory + change points"],
-      acceptance: ["Returns versions in order with headline + timestamp + source + rationale"],
-      tests: ["Repo test (ordering, completeness)", "User-isolation test"],
-      dependsOn: ["T3.7"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T4.2", title: "Belief-over-time chart",
-      goal: "Visualise how the forecast moved.",
-      implementation: ["Recharts line of headlineP vs createdAt", "Markers for check-ins", "Hover shows rationale"],
-      acceptance: ["Chart reflects stored versions", "Check-in points distinguishable", "Empty/single-point states handled"],
-      tests: ["Component test with fixture versions", "Empty-state test"],
-      dependsOn: ["T4.1"], human: { needed: true, reason: "You're colorblind — worth confirming check-in markers are distinguishable by shape/position, not just color, same principle as this tracker." },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T4.3", title: "Cadence engine",
-      goal: "Drive \"when to revisit.\"",
-      implementation: ["Pure nextDue(forecast, lastVersionAt) for none / interval / dates", "Dashboard surfaces overdue (reuses T3.2 badge)"],
-      acceptance: ["Correct next-due for each cadence kind", "Dates in the past flagged overdue", "none never due"],
-      tests: ["Exhaustive unit tests (interval rollover, multiple dates, past/future, timezone-safe comparisons)"],
-      dependsOn: ["T3.1"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T4.4", title: "Check-in flow",
-      goal: "Structured re-evaluation.",
-      implementation: ["From a due forecast, open a check-in: show current tree + headline", "Let the user adjust node params/values; recompute live", "Entry point logs source:'checkin'"],
-      acceptance: ["User can revise any leaf", "Live headline recomputes", "Cancelling makes no version"],
-      tests: ["Adjust → recompute → save creates a checkin version", "Cancel creates none"],
-      dependsOn: ["T3.4", "T3.6", "T4.3"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T4.5", title: "Update-discipline guardrails",
-      goal: "Discourage wild swings, encourage incremental updates.",
-      implementation: ["On save during check-in, compute Δ = newHeadline − prevHeadline", "If |Δ| > threshold (default 0.15) show a 'large move' prompt requiring rationale", "Always show prior beside proposed and the step size", "Gentle 'under-reacting?' note if rationale mentions new evidence but |Δ| is tiny"],
-      acceptance: ["Large moves cannot be saved without a rationale", "Small moves save freely", "Prior/proposed both shown", "Threshold configurable"],
-      tests: ["Unit tests on threshold/diff logic", "Component test (large move blocks save until rationale; small move doesn't)", "Persistence of rationale"],
-      dependsOn: ["T4.4", "T4.1"], human: { needed: true, reason: "Whether the large-move prompt feels like useful friction (vs annoying) is a product-feel judgment only you can make." },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T4.6", title: "Rationale capture & display",
-      goal: "Make the reasoning trail first-class.",
-      implementation: ["Store rationale on the version", "Render it on the timeline (T4.2) and a version-history list"],
-      acceptance: ["Rationale persists and appears against the correct version"],
-      tests: ["Integration (rationale stored on right version)", "Display test"],
-      dependsOn: ["T4.5", "T4.2"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-  ]},
-  { name: "Phase 5 — Resolution", phaseReview: { status: "not_ready", reviewer: null, reviewedAt: null }, tickets: [
-    { id: "T5.1", title: "Resolve flow (binary)",
-      goal: "Record what actually happened.",
-      implementation: ["'Resolve' action sets resolvedOutcome (true/false), resolvedAt, optional resolutionNotes, status:'resolved'", "Lock further edits/check-ins"],
-      acceptance: ["Resolving sets fields and prevents new versions", "Double-resolution prevented"],
-      tests: ["Integration (resolve sets state, locks edits, blocks re-resolve)", "User-isolation"],
-      dependsOn: ["T3.7"], human: { needed: true, reason: "Resolving a forecast is a real, hard-to-reverse data action — worth confirming before locking edits on real data." },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T5.2", title: "Resolved-state UI",
-      goal: "Show outcome against the forecast.",
-      implementation: ["On a resolved forecast, display the outcome, the final pre-resolution headline, and the trajectory with an outcome marker (0 or 1)"],
-      acceptance: ["Resolved view clearly shows outcome vs trajectory", "No edit affordances"],
-      tests: ["Component test with a resolved fixture"],
-      dependsOn: ["T5.1", "T4.2"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T5.3", title: "Auto-resolution scaffold (deferred logic)",
-      goal: "Leave a clean hook for public-event auto-resolution later.",
-      implementation: ["Add a publiclyResolvable boolean on creation", "Stubbed /api/llm/resolve route (auth-gated, returns 'not implemented')", "No real logic"],
-      acceptance: ["Flag persists", "Stub route is auth-gated and returns a clear not-implemented response"],
-      tests: ["Route auth test", "Flag persistence"],
-      dependsOn: ["T5.1"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-  ]},
-  { name: "Phase 6 — Calibration loop", phaseReview: { status: "not_ready", reviewer: null, reviewedAt: null }, tickets: [
-    { id: "T6.1", title: "Scoring functions",
-      goal: "Proper scores.",
-      implementation: ["brier(p,o) = (p−o)²", "logScore(p,o) = −(o·ln p + (1−o)·ln(1−p)) with p clamped to [ε, 1−ε]"],
-      acceptance: ["Known values exact: brier(0.7,1)=0.09, brier(0.5,0)=0.25, logScore(0.7,1)=0.3567…"],
-      tests: ["Known-value unit tests", "Clamping prevents ±∞"],
-      dependsOn: ["T0.1"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T6.2", title: "Per-forecast score computation",
-      goal: "Score each resolved forecast.",
-      implementation: ["Take the final pre-resolution headline as the scored p against o ∈ {0,1}", "(optional) also compute scores at each version for a trajectory"],
-      acceptance: ["Each resolved forecast yields a Brier + log score", "Open forecasts excluded"],
-      tests: ["Integration over seeded resolved forecasts", "Excludes open ones"],
-      dependsOn: ["T6.1", "T5.1"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T6.3", title: "Calibration dashboard",
-      goal: "Show the user how well-calibrated they are.",
-      implementation: ["Reliability diagram: bin resolved forecasts by predicted probability (deciles), plot mean predicted vs observed frequency, with counts per bin", "Aggregate mean Brier + mean log score and total resolved", "'Need more resolved forecasts to be meaningful' messaging under a threshold"],
-      acceptance: ["Diagram + aggregates render from real resolved data", "Sparse-data state is honest, not misleading"],
-      tests: ["Binning unit tests (assignment, mean-per-bin)", "Component test with a fixture set", "Sparse-data messaging test"],
-      dependsOn: ["T6.2"], human: { needed: true, reason: "Colorblind-safe check on the reliability diagram, and whether sparse-data messaging reads as honest rather than discouraging, are worth your eyes." },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T6.4", title: "Subevent-level scoring (optional/advanced)",
-      goal: "Richer feedback where sub-events are themselves resolvable.",
-      implementation: ["Allow marking individual leaf nodes resolvable + recording their outcomes", "Score those nodes' committed probabilities", "Surface patterns (e.g. consistent optimism on a tagged node category)"],
-      acceptance: ["Resolvable leaves can be scored independently", "Per-node scores computed correctly"],
-      tests: ["Scoring tests on tagged-leaf fixtures"],
-      dependsOn: ["T6.2"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-  ]},
-  { name: "Phase 7 — Co-pilot scaffold", phaseReview: { status: "not_ready", reviewer: null, reviewedAt: null }, tickets: [
-    { id: "T7.1", title: "Secure Claude proxy route",
-      goal: "A safe server-only LLM seam.",
-      implementation: ["/api/llm/* route handler reads ANTHROPIC_API_KEY server-side only", "Requires an authenticated user", "Scopes any request to that user's data", "Rate-limits; never returns the key; never mixes users"],
-      acceptance: ["Key absent from client bundle", "Unauthed requests rejected", "A mocked happy-path returns a model response shape"],
-      tests: ["Bundle-inspection test asserting the key string never appears client-side", "Auth-required test", "User-scoping test", "(mocked) happy-path"],
-      dependsOn: ["T1.1"], human: { needed: true, reason: "Only you hold the ANTHROPIC_API_KEY — it has to be supplied via your env/Vercel secrets, I can't generate or obtain it." },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T7.2", title: "\"Suggest decomposition\" stub (feature-flagged)",
-      goal: "Define the future contract without shipping the product feature.",
-      implementation: ["Endpoint + typed request/response for 'given a question, suggest sub-events'", "Behind a default-off feature flag", "Minimal/placeholder model prompt; clearly marked experimental"],
-      acceptance: ["Flag off by default", "When on, returns a well-typed (possibly trivial) suggestion", "Off → endpoint inert"],
-      tests: ["Flag on/off behaviour", "Response schema validation (mocked LLM)"],
-      dependsOn: ["T7.1"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-  ]},
-  { name: "Phase 8 — Polish & hardening", phaseReview: { status: "not_ready", reviewer: null, reviewedAt: null }, tickets: [
-    { id: "T8.1", title: "Responsive + PWA",
-      goal: "Usable and installable on mobile browsers.",
-      implementation: ["Responsive layouts for all screens", "PWA manifest + icons + service worker (offline shell)"],
-      acceptance: ["Core screens usable at mobile widths", "App is installable", "Lighthouse PWA checks pass"],
-      tests: ["A couple of viewport-sized Playwright runs", "Manifest presence test"],
-      dependsOn: ["T3.x–T6.x screens"], human: { needed: true, reason: "Actually installing the PWA on your phone and confirming it feels right is a physical-device check I can't do." },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T8.2", title: "States: loading / empty / error",
-      goal: "No raw spinners or crashes.",
-      implementation: ["Consistent loading skeletons, empty states (no forecasts, no resolved data), error boundaries with retry"],
-      acceptance: ["Each major screen has all three states"],
-      tests: ["Component tests forcing each state"],
-      dependsOn: ["T3.x–T6.x"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T8.3", title: "Accessibility pass",
-      goal: "Keyboard + screen-reader sane.",
-      implementation: ["Labels, focus order, roles, contrast", "Audit with axe"],
-      acceptance: ["No critical axe violations on core screens", "Tree editor operable by keyboard"],
-      tests: ["Automated axe checks in component/E2E tests"],
-      dependsOn: ["T3.x–T6.x"], human: { needed: true, reason: "Automated axe checks miss real keyboard-only and screen-reader flow — and given your colorblindness, contrast matters more than usual here." },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T8.4", title: "Golden-path E2E",
-      goal: "Prove the whole loop.",
-      implementation: ["Playwright: sign in → create forecast → build a small tree → see headline → save → check-in with a large move (rationale required) → resolve → calibration updates"],
-      acceptance: ["The full journey passes headlessly in CI"],
-      tests: ["The E2E itself"],
-      dependsOn: ["T1.x–T6.x"], human: { needed: false },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-    { id: "T8.5", title: "Deployment runbook & docs",
-      goal: "Reproducible setup.",
-      implementation: ["README with env vars, DB setup, migration + seed commands, deploy steps", "tracker.html reflects final state"],
-      acceptance: ["A new dev can go from clone → running locally → deployed using only the docs"],
-      tests: ["Doc-driven dry run (manual checklist)"],
-      dependsOn: ["all"], human: { needed: true, reason: "The actual production deploy and confirming the docs work end-to-end is something only you can execute and sign off on." },
-      progress: { started: false, testsWritten: false, humanVerified: false } },
-  ]},
+  {
+    "name": "Phase 0 — Scaffold & infrastructure",
+    "phaseReview": {
+      "status": "passed",
+      "reviewer": "Codex",
+      "reviewedAt": "2026-06-21"
+    },
+    "tickets": [
+      {
+        "id": "T0.1",
+        "title": "Initialise project & tooling",
+        "goal": "Working Next.js + TS repo with linting, formatting, and test runners wired.",
+        "implementation": [
+          "<code>create-next-app</code> (App Router, TS)",
+          "Add ESLint, Prettier, Vitest, RTL, Playwright",
+          "Npm scripts <code>dev/build/lint/typecheck/test/test:e2e</code>"
+        ],
+        "acceptance": [
+          "<code>npm run dev</code> serves a placeholder page",
+          "<code>lint</code>, <code>typecheck</code>, <code>test</code> all run and pass on an empty smoke test"
+        ],
+        "tests": [
+          "One trivial Vitest smoke test",
+          "One Playwright test that loads <code>/</code> and asserts a heading"
+        ],
+        "dependsOn": [],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": true,
+          "testsWritten": true,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T0.2",
+        "title": "Vercel project & Postgres provisioning",
+        "goal": "Deployable skeleton with a connected database.",
+        "implementation": [
+          "Create Vercel project",
+          "Provision Vercel Postgres",
+          "Wire env vars locally (<code>.env.local</code>) and in Vercel",
+          "Document in <code>README</code>"
+        ],
+        "acceptance": [
+          "App deploys to a Vercel preview URL",
+          "A <code>/api/health</code> route returns <code>{ ok: true, db: 'connected' }</code> after a trivial <code>SELECT 1</code>"
+        ],
+        "tests": [
+          "Integration test hitting <code>/api/health</code> against a test DB returns db-connected"
+        ],
+        "dependsOn": [
+          "T0.1"
+        ],
+        "human": {
+          "needed": true,
+          "reason": "Requires logging into Vercel/Neon to create the project and database and supplying the connection string — accounts and credentials only you hold."
+        },
+        "progress": {
+          "started": true,
+          "testsWritten": true,
+          "humanVerified": true
+        }
+      },
+      {
+        "id": "T0.3",
+        "title": "ORM & migrations",
+        "goal": "Drizzle configured with migration workflow.",
+        "implementation": [
+          "Install Drizzle + driver",
+          "Config",
+          "<code>db:generate</code> / <code>db:migrate</code> scripts",
+          "Empty initial migration"
+        ],
+        "acceptance": [
+          "Running migrations against a fresh DB succeeds and is idempotent"
+        ],
+        "tests": [
+          "CI step applies migrations to an ephemeral Neon branch and reports success"
+        ],
+        "dependsOn": [
+          "T0.2"
+        ],
+        "human": {
+          "needed": true,
+          "reason": "Provisioning a Neon API token (your account) was needed to create/destroy a real ephemeral branch for verification."
+        },
+        "progress": {
+          "started": true,
+          "testsWritten": true,
+          "humanVerified": true
+        }
+      },
+      {
+        "id": "T0.4",
+        "title": "CI pipeline",
+        "goal": "PRs gated on quality.",
+        "implementation": [
+          "GitHub Actions: install, <code>lint</code>, <code>typecheck</code>, <code>test</code>, build",
+          "(optionally <code>test:e2e</code> on a schedule)"
+        ],
+        "acceptance": [
+          "A PR with a failing test/types is blocked",
+          "A clean PR passes"
+        ],
+        "tests": [
+          "The pipeline itself (verify a deliberately broken branch fails)"
+        ],
+        "dependsOn": [
+          "T0.1"
+        ],
+        "human": {
+          "needed": true,
+          "reason": "Needed your GitHub account to push the repo, enable Actions, and set branch protection — verified via the GitHub API: origin/main exists, one CI run completed successfully, and main reports protected: true."
+        },
+        "progress": {
+          "started": true,
+          "testsWritten": true,
+          "humanVerified": true
+        }
+      },
+      {
+        "id": "T0.5",
+        "title": "App shell & routing skeleton",
+        "goal": "Navigable empty screens.",
+        "implementation": [
+          "Layout, nav, and stub routes: <code>/</code> (dashboard), <code>/forecasts/new</code>, <code>/forecasts/[id]</code>, <code>/forecasts/[id]/check-in</code>, <code>/calibration</code>"
+        ],
+        "acceptance": [
+          "All routes render a titled placeholder",
+          "Nav links work"
+        ],
+        "tests": [
+          "RTL renders layout with nav",
+          "Playwright navigates between routes"
+        ],
+        "dependsOn": [
+          "T0.1"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": true,
+          "testsWritten": true,
+          "humanVerified": false
+        }
+      }
+    ]
+  },
+  {
+    "name": "Phase 1 — Auth & data layer",
+    "phaseReview": {
+      "status": "not_ready",
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "tickets": [
+      {
+        "id": "T1.1",
+        "title": "Authentication",
+        "goal": "Logged-in, user-scoped app.",
+        "implementation": [
+          "Auth.js with one provider",
+          "Protect all <code>/forecasts/*</code>, <code>/calibration</code>, <code>/api/*</code> (except health)",
+          "Expose <code>getCurrentUser()</code> server helper"
+        ],
+        "acceptance": [
+          "Unauthed access to protected routes redirects to sign-in",
+          "Authed user has a stable id"
+        ],
+        "tests": [
+          "Integration tests: protected route 401/redirect when unauthed",
+          "Succeeds when authed (mocked session)"
+        ],
+        "dependsOn": [
+          "T0.5"
+        ],
+        "human": {
+          "needed": true,
+          "reason": "Choosing/creating the OAuth provider (e.g. a GitHub OAuth app) and supplying its client id/secret requires your accounts and decisions."
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T1.2",
+        "title": "Schema & migrations (users, forecasts, versions)",
+        "goal": "Persisted domain model from §5.",
+        "implementation": [
+          "Drizzle tables for <code>users</code>, <code>forecasts</code>, <code>forecast_versions</code>",
+          "Migration",
+          "Indexes"
+        ],
+        "acceptance": [
+          "Tables created",
+          "FKs enforced",
+          "Can insert/select a forecast + version by hand"
+        ],
+        "tests": [
+          "DB tests: insert user→forecast→version",
+          "FK violation rejected",
+          "<code>versionNo</code> uniqueness per forecast"
+        ],
+        "dependsOn": [
+          "T0.3",
+          "T1.1"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T1.3",
+        "title": "Data-access layer + shared types",
+        "goal": "Type-safe, user-scoped CRUD.",
+        "implementation": [
+          "Repository functions (<code>createForecast</code>, <code>getForecast</code>, <code>listForecasts</code>, <code>appendVersion</code>, <code>resolveForecast</code>) <strong>always filtered by <code>userId</code></strong>",
+          "Zod schemas for <code>Tree</code> and all node params (shared front/back)"
+        ],
+        "acceptance": [
+          "No repository function can return another user's data",
+          "Tree Zod schema rejects malformed trees (bad type, bad arity)"
+        ],
+        "tests": [
+          "Unit tests for Zod tree validation (valid + each invalid case from §4.3)",
+          "Repo tests confirming user isolation"
+        ],
+        "dependsOn": [
+          "T1.2"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T1.4",
+        "title": "Seed & DB test harness",
+        "goal": "Reproducible local/test data.",
+        "implementation": [
+          "Seed script creating a demo user + one sample binary forecast with a small tree",
+          "Test-DB setup/teardown helpers (Neon branch or local Postgres)"
+        ],
+        "acceptance": [
+          "<code>npm run seed</code> populates a runnable example",
+          "Tests can spin a clean DB"
+        ],
+        "tests": [
+          "Harness self-test (seed → query → assert shape)"
+        ],
+        "dependsOn": [
+          "T1.3"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      }
+    ]
+  },
+  {
+    "name": "Phase 2 — Probabilistic core (pure, client-side; build early)",
+    "phaseReview": {
+      "status": "pending",
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "tickets": [
+      {
+        "id": "T2.1",
+        "title": "Seedable RNG & sampling utilities",
+        "goal": "Deterministic randomness.",
+        "implementation": [
+          "Wrap a seedable PRNG",
+          "Helper to create independent streams",
+          "Ban bare <code>Math.random</code> via lint rule"
+        ],
+        "acceptance": [
+          "Same seed → identical sequence",
+          "Different seeds → different"
+        ],
+        "tests": [
+          "Determinism test",
+          "Basic uniformity sanity (mean ≈ 0.5 over large N)"
+        ],
+        "dependsOn": [
+          "T0.1"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": true,
+          "testsWritten": true,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T2.2",
+        "title": "Distribution samplers",
+        "goal": "All nine distributions in §4.2.",
+        "implementation": [
+          "Implement each per §6.1",
+          "Document algorithm limits in code (e.g. Poisson/Knuth)"
+        ],
+        "acceptance": [
+          "Each sampler's empirical mean/variance match theory within tolerance at large N"
+        ],
+        "tests": [
+          "Per-distribution statistical tests (seeded): assert mean & variance within <code>±</code> tolerance",
+          "Range constraints (Beta ∈ [0,1], Poisson ∈ ℤ≥0, etc.)"
+        ],
+        "dependsOn": [
+          "T2.1"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": true,
+          "testsWritten": true,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T2.3",
+        "title": "Elicitation → parameter fitters",
+        "goal": "Human inputs → fitted params (§6.2).",
+        "implementation": [
+          "Normal/Lognormal quantile fit",
+          "Triangular/PERT 3-point",
+          "Beta (mean+ν, pseudo-counts)",
+          "Poisson"
+        ],
+        "acceptance": [
+          "Fitting then sampling recovers the input quantiles within tolerance",
+          "Invalid inputs (e.g. <code>P10 > P90</code>, <code>mode</code> outside <code>[min,max]</code>) throw clear errors"
+        ],
+        "tests": [
+          "Round-trip tests per fitter",
+          "Invalid-input tests"
+        ],
+        "dependsOn": [
+          "T2.2"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": true,
+          "testsWritten": true,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T2.4",
+        "title": "Tree types & Zod schema",
+        "goal": "Canonical <code>Tree</code> representation (§4.4).",
+        "implementation": [
+          "Types + Zod schema",
+          "Helpers (<code>computeOutputType(node)</code>, traversal)"
+        ],
+        "acceptance": [
+          "Output type of every node type computed correctly"
+        ],
+        "tests": [
+          "Output-type tests across all node types"
+        ],
+        "dependsOn": [
+          "T0.1"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": true,
+          "testsWritten": true,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T2.5",
+        "title": "Combinator evaluation",
+        "goal": "Deterministic per-trial evaluation of composites (§4.2).",
+        "implementation": [
+          "<code>and/or/not/k_of_n/count_true/sum/threshold</code>"
+        ],
+        "acceptance": [
+          "Exact truth-table / arithmetic behaviour"
+        ],
+        "tests": [
+          "Truth tables for boolean combinators",
+          "<code>k_of_n</code> boundary cases",
+          "<code>threshold</code> for each operator",
+          "<code>sum</code>/<code>count_true</code> arithmetic"
+        ],
+        "dependsOn": [
+          "T2.4"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": true,
+          "testsWritten": true,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T2.6",
+        "title": "Tree validation",
+        "goal": "Enforce §4.3.",
+        "implementation": [
+          "<code>validateTree(tree) -> {valid, errors[]}</code> checking root-boolean, child-type matching, arity, param ranges"
+        ],
+        "acceptance": [
+          "Every invalid case yields a specific, human-readable error",
+          "Valid trees pass"
+        ],
+        "tests": [
+          "One test per validation rule (pass + fail)"
+        ],
+        "dependsOn": [
+          "T2.4",
+          "T2.5"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": true,
+          "testsWritten": true,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T2.7",
+        "title": "Monte Carlo runner",
+        "goal": "<code>runForecast</code> (§6.3).",
+        "implementation": [
+          "DFS sample + evaluate",
+          "Aggregate <code>p</code>, <code>se</code>, <code>ci95</code>",
+          "Optional <code>nodeSummaries</code>"
+        ],
+        "acceptance": [
+          "Matches all analytic anchors in §6.4 within <code>3·SE</code>",
+          "Reproducible under fixed seed"
+        ],
+        "tests": [
+          "The §6.4 anchor suite",
+          "Determinism test",
+          "A multi-level mixed tree against an independently computed expectation"
+        ],
+        "dependsOn": [
+          "T2.2",
+          "T2.3",
+          "T2.5",
+          "T2.6"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": true,
+          "testsWritten": true,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T2.8",
+        "title": "Performance guardrails & benchmark",
+        "goal": "Keep it snappy (§6.5).",
+        "implementation": [
+          "Cap <code>trials</code>/node count",
+          "Micro-benchmark a representative tree"
+        ],
+        "acceptance": [
+          "Representative headline recompute < 100ms in a browser-like env at default N"
+        ],
+        "tests": [
+          "Benchmark test asserting a time budget",
+          "Cap-enforcement tests"
+        ],
+        "dependsOn": [
+          "T2.7"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": true,
+          "testsWritten": true,
+          "humanVerified": false
+        }
+      }
+    ]
+  },
+  {
+    "name": "Phase 3 — Forecast CRUD & tree editor",
+    "phaseReview": {
+      "status": "not_ready",
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "tickets": [
+      {
+        "id": "T3.1",
+        "title": "Create-forecast flow",
+        "goal": "Make a new binary forecast.",
+        "implementation": [
+          "Form: title, description, (binary fixed for v1), cadence config (none / interval-days / specific-dates)",
+          "Persist an initial empty-ish forecast + <code>source:'initial'</code> version"
+        ],
+        "acceptance": [
+          "Submitting creates a forecast owned by the user and lands on its editor"
+        ],
+        "tests": [
+          "Integration (creation persists, user-scoped)",
+          "Component test for the form",
+          "Cadence validation tests"
+        ],
+        "dependsOn": [
+          "T1.3",
+          "T0.5"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T3.2",
+        "title": "Dashboard / forecast list",
+        "goal": "See and open forecasts; spot what needs review.",
+        "implementation": [
+          "List of the user's forecasts with headline, status, and a <strong>\"due for review\"</strong> badge computed from cadence + latest version time"
+        ],
+        "acceptance": [
+          "Only the user's forecasts show",
+          "Overdue ones are flagged",
+          "Clicking opens the forecast"
+        ],
+        "tests": [
+          "Due-ness computation unit tests (interval & date-based, edge cases)",
+          "RTL list rendering",
+          "User-isolation test"
+        ],
+        "dependsOn": [
+          "T3.1"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T3.3",
+        "title": "Tree editor shell (outline)",
+        "goal": "Build/edit the tree structure.",
+        "implementation": [
+          "Nested indented outline",
+          "Add child (choose leaf/composite + type), rename, delete, reorder",
+          "Expand/collapse",
+          "Live <code>validateTree</code> feedback inline"
+        ],
+        "acceptance": [
+          "Can construct an arbitrary valid tree",
+          "Invalid wiring is blocked with a clear message",
+          "Root stays boolean"
+        ],
+        "tests": [
+          "Component tests for add/delete/move/rename",
+          "Invalid-wiring rejection test"
+        ],
+        "dependsOn": [
+          "T2.4",
+          "T2.6",
+          "T3.1"
+        ],
+        "human": {
+          "needed": true,
+          "reason": "Outline-editor feel (drag/reorder, clarity of inline validation messages) is a UX judgment call worth your eyes."
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T3.4",
+        "title": "Leaf node editor + distribution preview",
+        "goal": "Configure a distribution in human terms and *see* it.",
+        "implementation": [
+          "Per leaf type, the right elicitation inputs (quantiles / three-point / p / pseudo-counts)",
+          "On change, fit params and render a <strong>histogram preview</strong> + implied <code>P10/P50/P90</code>"
+        ],
+        "acceptance": [
+          "Editing inputs updates the preview",
+          "Implied quantiles match the fitter",
+          "Bad inputs show errors, not crashes"
+        ],
+        "tests": [
+          "Component tests per leaf type",
+          "Preview reflects fitted params",
+          "Error-state tests"
+        ],
+        "dependsOn": [
+          "T2.3",
+          "T3.3"
+        ],
+        "human": {
+          "needed": true,
+          "reason": "This is the 'good-habits' feature — whether the preview actually makes you confront your tails is your call, not a unit test's."
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T3.5",
+        "title": "Composite node editor",
+        "goal": "Configure combinators.",
+        "implementation": [
+          "For <code>k_of_n</code> set <code>k</code>",
+          "For <code>threshold</code> set <code>op</code> + <code>value</code>",
+          "Others need only children. Show output type"
+        ],
+        "acceptance": [
+          "Config persists into the tree",
+          "<code>k_of_n</code> enforces <code>1 ≤ k ≤ n</code>",
+          "<code>threshold</code> requires a numeric child"
+        ],
+        "tests": [
+          "Component tests",
+          "Constraint tests"
+        ],
+        "dependsOn": [
+          "T3.3"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T3.6",
+        "title": "Live headline in editor",
+        "goal": "Immediate feedback as the model changes.",
+        "implementation": [
+          "On any valid edit, run <code>runForecast</code> (debounced) client-side",
+          "Show <code>p</code> as a percentage with the <strong>±SE / 95% CI</strong>",
+          "Disable/grey when tree invalid"
+        ],
+        "acceptance": [
+          "Headline updates within the debounce window",
+          "CI shown",
+          "Invalid tree shows guidance not a number"
+        ],
+        "tests": [
+          "Component test (edit → headline changes)",
+          "CI displayed",
+          "Invalid-state handling"
+        ],
+        "dependsOn": [
+          "T2.7",
+          "T3.3",
+          "T3.4",
+          "T3.5"
+        ],
+        "human": {
+          "needed": true,
+          "reason": "Whether the debounce/recompute actually feels snappy in a real browser is worth confirming yourself."
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T3.7",
+        "title": "Persist version (save)",
+        "goal": "Save the tree as an immutable version with its computed headline.",
+        "implementation": [
+          "\"Save\" appends a <code>forecast_versions</code> row (<code>tree</code>, <code>headlineP</code>, <code>headlineSE</code>, <code>trials</code>, <code>source:'edit'</code>)",
+          "Update <code>currentVersionId</code>",
+          "Reload latest on open"
+        ],
+        "acceptance": [
+          "Saving creates exactly one new version",
+          "Reopening shows the latest tree + headline",
+          "Server re-validates the tree before insert"
+        ],
+        "tests": [
+          "Integration (save → version row with correct headline within tolerance",
+          "Server rejects invalid tree)",
+          "Reload test"
+        ],
+        "dependsOn": [
+          "T1.3",
+          "T3.6"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      }
+    ]
+  },
+  {
+    "name": "Phase 4 — Living forecasts: check-ins, history, update discipline",
+    "phaseReview": {
+      "status": "not_ready",
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "tickets": [
+      {
+        "id": "T4.1",
+        "title": "Version history wiring",
+        "goal": "Expose the append-only timeline.",
+        "implementation": [
+          "Query all versions for a forecast (ordered)",
+          "Derive headline trajectory + change points"
+        ],
+        "acceptance": [
+          "Returns versions in order with headline + timestamp + source + rationale"
+        ],
+        "tests": [
+          "Repo test (ordering, completeness)",
+          "User-isolation test"
+        ],
+        "dependsOn": [
+          "T3.7"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T4.2",
+        "title": "Belief-over-time chart",
+        "goal": "Visualise how the forecast moved.",
+        "implementation": [
+          "Recharts line of <code>headlineP</code> vs <code>createdAt</code>",
+          "Markers for check-ins",
+          "Hover shows rationale"
+        ],
+        "acceptance": [
+          "Chart reflects stored versions",
+          "Check-in points distinguishable",
+          "Empty/single-point states handled"
+        ],
+        "tests": [
+          "Component test with fixture versions",
+          "Empty-state test"
+        ],
+        "dependsOn": [
+          "T4.1"
+        ],
+        "human": {
+          "needed": true,
+          "reason": "You're colorblind — worth confirming check-in markers are distinguishable by shape/position, not just color, same principle as this tracker."
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T4.3",
+        "title": "Cadence engine",
+        "goal": "Drive \"when to revisit.\"",
+        "implementation": [
+          "Pure <code>nextDue(forecast, lastVersionAt)</code> for <code>none</code> / <code>interval</code> / <code>dates</code>",
+          "Dashboard surfaces overdue (reuses T3.2 badge)"
+        ],
+        "acceptance": [
+          "Correct next-due for each cadence kind",
+          "Dates in the past flagged overdue",
+          "<code>none</code> never due"
+        ],
+        "tests": [
+          "Exhaustive unit tests (interval rollover, multiple dates, past/future, timezone-safe comparisons)"
+        ],
+        "dependsOn": [
+          "T3.1"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T4.4",
+        "title": "Check-in flow",
+        "goal": "Structured re-evaluation.",
+        "implementation": [
+          "From a due forecast, open a check-in: show current tree + current headline",
+          "Let the user adjust node params/values",
+          "Recompute live",
+          "Entry point logs <code>source:'checkin'</code>"
+        ],
+        "acceptance": [
+          "User can revise any leaf",
+          "Live headline recomputes",
+          "Cancelling makes no version"
+        ],
+        "tests": [
+          "Component/integration: adjust → recompute → save creates a <code>checkin</code> version",
+          "Cancel creates none"
+        ],
+        "dependsOn": [
+          "T3.4",
+          "T3.6",
+          "T4.3"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T4.5",
+        "title": "Update-discipline guardrails",
+        "goal": "Discourage wild swings, encourage incremental updates.",
+        "implementation": [
+          "On save during a check-in, compute <code>Δ = newHeadline − prevHeadline</code>",
+          "If <code>|Δ| > threshold</code> (configurable",
+          "Default 0.15) show a <strong>\"large move\"</strong> prompt requiring a <code>rationale</code> before saving",
+          "Always display <strong>prior beside proposed</strong> and the step size",
+          "(lightweight) if a rationale mentions new evidence but <code>|Δ|</code> is tiny, surface a gentle \"are you under-reacting?\" note"
+        ],
+        "acceptance": [
+          "Large moves cannot be saved without a rationale",
+          "Small moves save freely",
+          "Prior/proposed both shown",
+          "Threshold configurable"
+        ],
+        "tests": [
+          "Unit tests on the threshold/diff logic",
+          "Component test (large move blocks save until rationale",
+          "Small move doesn't)",
+          "Persistence of rationale"
+        ],
+        "dependsOn": [
+          "T4.4",
+          "T4.1"
+        ],
+        "human": {
+          "needed": true,
+          "reason": "Whether the large-move prompt feels like useful friction (vs annoying) is a product-feel judgment only you can make."
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T4.6",
+        "title": "Rationale capture & display",
+        "goal": "Make the reasoning trail first-class.",
+        "implementation": [
+          "Store rationale on the version",
+          "Render it on the timeline (T4.2) and a version-history list"
+        ],
+        "acceptance": [
+          "Rationale persists and appears against the correct version"
+        ],
+        "tests": [
+          "Integration (rationale stored on right version)",
+          "Display test"
+        ],
+        "dependsOn": [
+          "T4.5",
+          "T4.2"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      }
+    ]
+  },
+  {
+    "name": "Phase 5 — Resolution",
+    "phaseReview": {
+      "status": "not_ready",
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "tickets": [
+      {
+        "id": "T5.1",
+        "title": "Resolve flow (binary)",
+        "goal": "Record what actually happened.",
+        "implementation": [
+          "\"Resolve\" action sets <code>resolvedOutcome</code> (true/false), <code>resolvedAt</code>, optional <code>resolutionNotes</code>, <code>status:'resolved'</code>",
+          "Lock further edits/check-ins"
+        ],
+        "acceptance": [
+          "Resolving sets fields and prevents new versions",
+          "Double-resolution prevented"
+        ],
+        "tests": [
+          "Integration (resolve sets state, locks edits, blocks re-resolve)",
+          "User-isolation"
+        ],
+        "dependsOn": [
+          "T3.7"
+        ],
+        "human": {
+          "needed": true,
+          "reason": "Resolving a forecast is a real, hard-to-reverse data action — worth confirming before locking edits on real data."
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T5.2",
+        "title": "Resolved-state UI",
+        "goal": "Show outcome against the forecast.",
+        "implementation": [
+          "On a resolved forecast, display the outcome, the final pre-resolution headline, and the trajectory with an outcome marker (0 or 1)"
+        ],
+        "acceptance": [
+          "Resolved view clearly shows outcome vs trajectory",
+          "No edit affordances"
+        ],
+        "tests": [
+          "Component test with a resolved fixture"
+        ],
+        "dependsOn": [
+          "T5.1",
+          "T4.2"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T5.3",
+        "title": "Auto-resolution scaffold (deferred logic)",
+        "goal": "Leave a clean hook for public-event auto-resolution later.",
+        "implementation": [
+          "Add a <code>publiclyResolvable</code> boolean on creation and a stubbed <code>/api/llm/resolve</code> route (auth-gated, returns \"not implemented\")",
+          "<strong>no real logic</strong>"
+        ],
+        "acceptance": [
+          "Flag persists",
+          "Stub route is auth-gated and returns a clear not-implemented response"
+        ],
+        "tests": [
+          "Route auth test",
+          "Flag persistence"
+        ],
+        "dependsOn": [
+          "T5.1",
+          "(T7.1 if built first)"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      }
+    ]
+  },
+  {
+    "name": "Phase 6 — Calibration loop",
+    "phaseReview": {
+      "status": "not_ready",
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "tickets": [
+      {
+        "id": "T6.1",
+        "title": "Scoring functions",
+        "goal": "Proper scores.",
+        "implementation": [
+          "<code>brier(p,o) = (p−o)²</code>",
+          "<code>logScore(p,o) = −(o·ln p + (1−o)·ln(1−p))</code> with <code>p</code> clamped to <code>[ε, 1−ε]</code>"
+        ],
+        "acceptance": [
+          "Known values exact: <code>brier(0.7,1)=0.09</code>, <code>brier(0.5,0)=0.25</code>, <code>logScore(0.7,1)=0.3567…</code>"
+        ],
+        "tests": [
+          "Known-value unit tests",
+          "Clamping prevents <code>±∞</code>"
+        ],
+        "dependsOn": [
+          "T0.1"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T6.2",
+        "title": "Per-forecast score computation",
+        "goal": "Score each resolved forecast.",
+        "implementation": [
+          "Take the <strong>final pre-resolution headline</strong> as the scored <code>p</code> against <code>o ∈ {0,1}</code>",
+          "(optional) also compute scores at each version for a trajectory"
+        ],
+        "acceptance": [
+          "Each resolved forecast yields a Brier + log score",
+          "Open forecasts excluded"
+        ],
+        "tests": [
+          "Integration over seeded resolved forecasts",
+          "Excludes open ones"
+        ],
+        "dependsOn": [
+          "T6.1",
+          "T5.1"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T6.3",
+        "title": "Calibration dashboard",
+        "goal": "Show the user how well-calibrated they are.",
+        "implementation": [
+          "Reliability diagram — bin resolved forecasts by predicted probability (deciles), plot mean predicted vs observed frequency, with counts per bin",
+          "Show aggregate mean Brier + mean log score and total resolved",
+          "<strong>\"need more resolved forecasts to be meaningful\"</strong> messaging under a threshold"
+        ],
+        "acceptance": [
+          "Diagram + aggregates render from real resolved data",
+          "Sparse-data state is honest, not misleading"
+        ],
+        "tests": [
+          "Binning unit tests (assignment, mean-per-bin)",
+          "Component test with a fixture set",
+          "Sparse-data messaging test"
+        ],
+        "dependsOn": [
+          "T6.2"
+        ],
+        "human": {
+          "needed": true,
+          "reason": "Colorblind-safe check on the reliability diagram, and whether sparse-data messaging reads as honest rather than discouraging, are worth your eyes."
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T6.4",
+        "title": "Subevent-level scoring (optional/advanced)",
+        "goal": "Richer feedback where sub-events are themselves resolvable.",
+        "implementation": [
+          "Allow marking individual leaf nodes resolvable + recording their outcomes",
+          "Score those nodes' committed probabilities",
+          "Surface patterns (e.g. consistent optimism on a tagged node category). <strong>Build only if Phase 6 core is solid.</strong>"
+        ],
+        "acceptance": [
+          "Resolvable leaves can be scored independently",
+          "Per-node scores computed correctly"
+        ],
+        "tests": [
+          "Scoring tests on tagged-leaf fixtures"
+        ],
+        "dependsOn": [
+          "T6.2"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      }
+    ]
+  },
+  {
+    "name": "Phase 7 — Co-pilot scaffold (LLM path; features deferred)",
+    "phaseReview": {
+      "status": "not_ready",
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "tickets": [
+      {
+        "id": "T7.1",
+        "title": "Secure Claude proxy route",
+        "goal": "A safe server-only LLM seam.",
+        "implementation": [
+          "<code>/api/llm/*</code> route handler that reads <code>ANTHROPIC_API_KEY</code> <strong>server-side only</strong>, requires an authenticated user, scopes any request to that user's data, and rate-limits",
+          "Never returns the key",
+          "Never mixes users"
+        ],
+        "acceptance": [
+          "Key absent from client bundle",
+          "Unauthed requests rejected",
+          "A mocked happy-path returns a model response shape"
+        ],
+        "tests": [
+          "Bundle-inspection/test asserting the key string never appears client-side",
+          "Auth-required test",
+          "User-scoping test",
+          "(mocked) happy-path"
+        ],
+        "dependsOn": [
+          "T1.1"
+        ],
+        "human": {
+          "needed": true,
+          "reason": "Only you hold the ANTHROPIC_API_KEY — it has to be supplied via your env/Vercel secrets, I can't generate or obtain it."
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T7.2",
+        "title": "\"Suggest decomposition\" stub (feature-flagged)",
+        "goal": "Define the future contract without shipping the product feature.",
+        "implementation": [
+          "Endpoint + typed request/response for \"given a question, suggest sub-events\"",
+          "Behind a default-off feature flag",
+          "Minimal/placeholder model prompt",
+          "Clearly marked experimental"
+        ],
+        "acceptance": [
+          "Flag off by default",
+          "When on, returns a well-typed (possibly trivial) suggestion",
+          "Off → endpoint inert"
+        ],
+        "tests": [
+          "Flag on/off behaviour",
+          "Response schema validation (mocked LLM)"
+        ],
+        "dependsOn": [
+          "T7.1"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      }
+    ]
+  },
+  {
+    "name": "Phase 8 — Polish, mobile-readiness, hardening",
+    "phaseReview": {
+      "status": "not_ready",
+      "reviewer": null,
+      "reviewedAt": null
+    },
+    "tickets": [
+      {
+        "id": "T8.1",
+        "title": "Responsive + PWA",
+        "goal": "Usable and installable on mobile browsers (cheapest mobile path; native wrappers later).",
+        "implementation": [
+          "Responsive layouts for all screens",
+          "PWA manifest + icons + service worker (offline shell)"
+        ],
+        "acceptance": [
+          "Core screens usable at mobile widths",
+          "App is installable",
+          "Lighthouse PWA checks pass"
+        ],
+        "tests": [
+          "A couple of viewport-sized Playwright runs",
+          "Manifest presence test"
+        ],
+        "dependsOn": [
+          "Phases 3–6 screens"
+        ],
+        "human": {
+          "needed": true,
+          "reason": "Actually installing the PWA on your phone and confirming it feels right is a physical-device check I can't do."
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T8.2",
+        "title": "States: loading / empty / error",
+        "goal": "No raw spinners or crashes.",
+        "implementation": [
+          "Consistent loading skeletons, empty states (no forecasts, no resolved data), and error boundaries with retry"
+        ],
+        "acceptance": [
+          "Each major screen has all three states"
+        ],
+        "tests": [
+          "Component tests forcing each state"
+        ],
+        "dependsOn": [
+          "Phases 3–6"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T8.3",
+        "title": "Accessibility pass",
+        "goal": "Keyboard + screen-reader sane.",
+        "implementation": [
+          "Labels, focus order, roles, contrast",
+          "Audit with axe"
+        ],
+        "acceptance": [
+          "No critical axe violations on core screens",
+          "Tree editor operable by keyboard"
+        ],
+        "tests": [
+          "Automated axe checks in component/E2E tests"
+        ],
+        "dependsOn": [
+          "Phases 3–6"
+        ],
+        "human": {
+          "needed": true,
+          "reason": "Automated axe checks miss real keyboard-only and screen-reader flow — and given your colorblindness, contrast matters more than usual here."
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T8.4",
+        "title": "Golden-path E2E",
+        "goal": "Prove the whole loop.",
+        "implementation": [
+          "Playwright: sign in → create forecast → build a small tree → see headline → save → check-in with a large move (rationale required) → resolve → calibration updates"
+        ],
+        "acceptance": [
+          "The full journey passes headlessly in CI"
+        ],
+        "tests": [
+          "The E2E itself"
+        ],
+        "dependsOn": [
+          "Phases 1–6"
+        ],
+        "human": {
+          "needed": false
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T8.5",
+        "title": "Deployment runbook & docs",
+        "goal": "Reproducible setup.",
+        "implementation": [
+          "<code>README</code> with env vars, DB setup, migration + seed commands, deploy steps",
+          "<code>PROGRESS.md</code> checklist final state"
+        ],
+        "acceptance": [
+          "A new dev can go from clone → running locally → deployed using only the docs"
+        ],
+        "tests": [
+          "Doc-driven dry run (manual checklist)"
+        ],
+        "dependsOn": [
+          "all"
+        ],
+        "human": {
+          "needed": true,
+          "reason": "The actual production deploy and confirming the docs work end-to-end is something only you can execute and sign off on."
+        },
+        "progress": {
+          "started": false,
+          "testsWritten": false,
+          "humanVerified": false
+        }
+      }
+    ]
+  }
 ];
-// ---- end data ----
+// ---- GENERATED DATA END ----
 
-document.getElementById("updated").textContent = LAST_UPDATED;
+      document.getElementById('updated').textContent = LAST_UPDATED;
 
-// Distinct shapes per status (not color alone) so it reads for colorblind users.
-const ICONS = {
-  todo: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/></svg>',
-  progress: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 2 A6 6 0 0 0 8 14 Z" fill="currentColor"/></svg>',
-  done: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="12" height="12" rx="2" stroke-width="1.6"/><path d="M5 8.5 L7 10.5 L11 6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  na: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 8 H13" stroke-linecap="round"/></svg>',
-};
-const STATUS_LABEL = { todo: "Not started", progress: "In progress", done: "Done" };
-const PHASE_REVIEW_LABEL = {
-  not_ready: "Not ready for review",
-  pending: "Awaiting independent review",
-  in_review: "Independent review in progress",
-  changes_requested: "Changes requested",
-  passed: "Independent review passed",
-};
+      // Distinct shapes per status (not color alone) so it reads for colorblind users.
+      const ICONS = {
+        todo: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/></svg>',
+        progress:
+          '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 2 A6 6 0 0 0 8 14 Z" fill="currentColor"/></svg>',
+        done: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="12" height="12" rx="2" stroke-width="1.6"/><path d="M5 8.5 L7 10.5 L11 6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        na: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 8 H13" stroke-linecap="round"/></svg>',
+      };
+      const STATUS_LABEL = { todo: 'Not started', progress: 'In progress', done: 'Done' };
+      const PHASE_REVIEW_LABEL = {
+        not_ready: 'Not ready for review',
+        pending: 'Awaiting independent review',
+        in_review: 'Independent review in progress',
+        changes_requested: 'Changes requested',
+        passed: 'Independent review passed',
+      };
 
-// status/complete are always derived from progress + human.needed — never stored,
-// so the row icon and the checklist inside it can't disagree with each other.
-function isComplete(t) {
-  return t.progress.started && t.progress.testsWritten && (!t.human.needed || t.progress.humanVerified);
-}
-function statusOf(t) {
-  if (isComplete(t)) return "done";
-  if (t.progress.started) return "progress";
-  return "todo";
-}
+      // status/complete are always derived from progress + human.needed — never stored,
+      // so the row icon and the checklist inside it can't disagree with each other.
+      function isComplete(t) {
+        return (
+          t.progress.started &&
+          t.progress.testsWritten &&
+          (!t.human.needed || t.progress.humanVerified)
+        );
+      }
+      function statusOf(t) {
+        if (isComplete(t)) return 'done';
+        if (t.progress.started) return 'progress';
+        return 'todo';
+      }
 
-function isPhaseComplete(phase) {
-  return phase.tickets.every(isComplete) && phase.phaseReview.status === "passed";
-}
+      function isPhaseComplete(phase) {
+        return phase.tickets.every(isComplete) && phase.phaseReview.status === 'passed';
+      }
 
-document.getElementById("legend").innerHTML = Object.keys(STATUS_LABEL).map(s =>
-  `<span class="legend-item"><span class="icon" style="color:var(--${s})">${ICONS[s]}</span>${STATUS_LABEL[s]}</span>`
-).join("");
+      document.getElementById('legend').innerHTML = Object.keys(STATUS_LABEL)
+        .map(
+          (s) =>
+            `<span class="legend-item"><span class="icon" style="color:var(--${s})">${ICONS[s]}</span>${STATUS_LABEL[s]}</span>`,
+        )
+        .join('');
 
-document.getElementById("summary").innerHTML = `
+      document.getElementById('summary').innerHTML = `
   <div class="heading">Where we are</div>
   <p>${SUMMARY.where}</p>
   <div class="heading">Recommended next steps</div>
   <ol>
-    ${SUMMARY.next.map(n => `<li>${n}</li>`).join("")}
+    ${SUMMARY.next.map((n) => `<li>${n}</li>`).join('')}
   </ol>
 `;
 
-const allTickets = phases.flatMap(p => p.tickets);
-const counts = { todo: 0, progress: 0, done: 0 };
-allTickets.forEach(t => counts[statusOf(t)]++);
+      const allTickets = phases.flatMap((p) => p.tickets);
+      const counts = { todo: 0, progress: 0, done: 0 };
+      allTickets.forEach((t) => counts[statusOf(t)]++);
 
-document.getElementById("stats").innerHTML = `
+      document.getElementById('stats').innerHTML = `
   <div class="stat"><div class="label">Total</div><div class="value">${allTickets.length}</div></div>
   <div class="stat"><div class="label">Done</div><div class="value">${counts.done}</div></div>
   <div class="stat"><div class="label">In progress</div><div class="value">${counts.progress}</div></div>
   <div class="stat"><div class="label">Not started</div><div class="value">${counts.todo}</div></div>
 `;
 
-const board = document.getElementById("board");
-const expanded = new Set();
-let currentQuery = "";
+      const board = document.getElementById('board');
+      const expanded = new Set();
+      let currentQuery = '';
 
-function checkRow(label, checked, na) {
-  const key = na ? "na" : (checked ? "done" : "todo");
-  return `<div class="check-item${na ? " na" : ""}"><span class="icon" style="color:var(--${key})">${ICONS[key]}</span><span>${label}</span></div>`;
-}
+      function checkRow(label, checked, na) {
+        const key = na ? 'na' : checked ? 'done' : 'todo';
+        return `<div class="check-item${na ? ' na' : ''}"><span class="icon" style="color:var(--${key})">${ICONS[key]}</span><span>${label}</span></div>`;
+      }
 
-function detailHTML(t) {
-  const human = t.human.needed
-    ? checkRow("Verified by human", t.progress.humanVerified, false)
-    : checkRow("Human verification — not required", false, true);
-  return `
+      function detailHTML(t) {
+        const human = t.human.needed
+          ? checkRow('Verified by human', t.progress.humanVerified, false)
+          : checkRow('Human verification — not required', false, true);
+        return `
     <div class="detail">
       <h4>Goal</h4>
       <div>${t.goal}</div>
       <h4>Implementation</h4>
-      <ul>${t.implementation.map(i => `<li>${i}</li>`).join("")}</ul>
+      <ul>${t.implementation.map((i) => `<li>${i}</li>`).join('')}</ul>
       <h4>Acceptance criteria</h4>
-      <ul>${t.acceptance.map(a => `<li>${a}</li>`).join("")}</ul>
+      <ul>${t.acceptance.map((a) => `<li>${a}</li>`).join('')}</ul>
       <h4>Tests</h4>
-      <ul>${t.tests.map(x => `<li>${x}</li>`).join("")}</ul>
+      <ul>${t.tests.map((x) => `<li>${x}</li>`).join('')}</ul>
       <h4>Depends on</h4>
-      <div class="chips">${t.dependsOn.length ? t.dependsOn.map(d => `<span class="chip">${d}</span>`).join("") : '<span class="chip">none</span>'}</div>
+      <div class="chips">${t.dependsOn.length ? t.dependsOn.map((d) => `<span class="chip">${d}</span>`).join('') : '<span class="chip">none</span>'}</div>
       <h4>Checklist</h4>
       <div class="checklist">
-        ${checkRow("Started", t.progress.started, false)}
-        ${checkRow("Tests written & green", t.progress.testsWritten, false)}
+        ${checkRow('Started', t.progress.started, false)}
+        ${checkRow('Tests written & green', t.progress.testsWritten, false)}
         ${human}
-        ${t.human.needed ? `<div class="check-reason">${t.human.reason}</div>` : ""}
-        ${checkRow("Complete", isComplete(t), false)}
+        ${t.human.needed ? `<div class="check-reason">${t.human.reason}</div>` : ''}
+        ${checkRow('Complete', isComplete(t), false)}
       </div>
     </div>
   `;
-}
+      }
 
-function toggleExpand(id) {
-  if (expanded.has(id)) expanded.delete(id); else expanded.add(id);
-  render(currentQuery);
-}
-window.toggleExpand = toggleExpand;
+      function toggleExpand(id) {
+        if (expanded.has(id)) expanded.delete(id);
+        else expanded.add(id);
+        render(currentQuery);
+      }
+      window.toggleExpand = toggleExpand;
 
-function render(filter) {
-  currentQuery = filter || "";
-  board.innerHTML = "";
-  const q = currentQuery.trim().toLowerCase();
+      function render(filter) {
+        currentQuery = filter || '';
+        board.innerHTML = '';
+        const q = currentQuery.trim().toLowerCase();
 
-  phases.forEach(phase => {
-    const matched = phase.tickets.filter(t =>
-      !q || t.id.toLowerCase().includes(q) || t.title.toLowerCase().includes(q)
-    );
-    if (q && matched.length === 0) return;
+        phases.forEach((phase) => {
+          const matched = phase.tickets.filter(
+            (t) => !q || t.id.toLowerCase().includes(q) || t.title.toLowerCase().includes(q),
+          );
+          if (q && matched.length === 0) return;
 
-    const done = phase.tickets.filter(t => statusOf(t) === "done").length;
-    const pct = Math.round((done / phase.tickets.length) * 100);
-    const review = phase.phaseReview;
-    const reviewDetail = review.status === "passed"
-      ? `${PHASE_REVIEW_LABEL[review.status]} by ${review.reviewer} on ${review.reviewedAt}`
-      : PHASE_REVIEW_LABEL[review.status];
+          const done = phase.tickets.filter((t) => statusOf(t) === 'done').length;
+          const pct = Math.round((done / phase.tickets.length) * 100);
+          const review = phase.phaseReview;
+          const reviewDetail =
+            review.status === 'passed'
+              ? `${PHASE_REVIEW_LABEL[review.status]} by ${review.reviewer} on ${review.reviewedAt}`
+              : PHASE_REVIEW_LABEL[review.status];
 
-    const section = document.createElement("div");
-    section.className = "phase";
-    section.innerHTML = `
+          const section = document.createElement('div');
+          section.className = 'phase';
+          section.innerHTML = `
       <div class="phase-header">
         <span class="name">${phase.name}</span>
-        <span class="count">${done}/${phase.tickets.length} tickets${isPhaseComplete(phase) ? " · phase done" : ""}</span>
+        <span class="count">${done}/${phase.tickets.length} tickets${isPhaseComplete(phase) ? ' · phase done' : ''}</span>
       </div>
       <div class="phase-bar"><div style="width:${pct}%"></div></div>
       <div class="phase-review"><strong>Phase gate:</strong> ${reviewDetail}</div>
       <div class="tickets has-detail">
-        ${matched.map(t => {
-          const s = statusOf(t);
-          const isOpen = expanded.has(t.id);
-          return `
+        ${matched
+          .map((t) => {
+            const s = statusOf(t);
+            const isOpen = expanded.has(t.id);
+            return `
             <div class="ticket-wrap">
               <button class="ticket ${s}" aria-expanded="${isOpen}" onclick="toggleExpand('${t.id}')">
                 <span class="icon">${ICONS[s]}</span>
@@ -615,18 +1912,19 @@ function render(filter) {
                 <span class="title">${t.title}</span>
                 <span class="chevron">&#8250;</span>
               </button>
-              ${isOpen ? detailHTML(t) : ""}
+              ${isOpen ? detailHTML(t) : ''}
             </div>
           `;
-        }).join("")}
+          })
+          .join('')}
       </div>
     `;
-    board.appendChild(section);
-  });
-}
+          board.appendChild(section);
+        });
+      }
 
-render("");
-document.getElementById("search").addEventListener("input", e => render(e.target.value));
-</script>
-</body>
+      render('');
+      document.getElementById('search').addEventListener('input', (e) => render(e.target.value));
+    </script>
+  </body>
 </html>

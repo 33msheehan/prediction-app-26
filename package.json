@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "npm run tracker:generate",
     "build": "next build",
     "start": "next start",
+    "tracker:generate": "node scripts/generate-tracker.mjs",
     "lint": "eslint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
