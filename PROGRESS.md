@@ -14,6 +14,7 @@ remains the formal dashboard.
 | T0.4 | Not started | unassigned | — | CI pipeline. Good parallel task for a second agent. |
 | T2.1 | Done | current session | codex/t2-engine | Added deterministic seedable RNG helpers in `lib/engine/rng.ts` with tests. |
 | T2.2 | Done | current session | codex/t2-engine | Added distribution samplers in `lib/engine/distributions.ts` with validation and statistical tests. |
+| T2.3 | Done | current session | codex/t2.3-fitters | Added elicitation-to-param fitters in `lib/engine/fitters.ts` with empirical round-trip and invalid-input tests. |
 
 ## Coordination rules
 
@@ -36,6 +37,9 @@ remains the formal dashboard.
   with 14 tests across 3 files; `npm run typecheck` exits 0.
 - 2026-06-21: Created branch `codex/t2-engine` and updated `tracker.html`
   to mark T2.1/T2.2 done.
+- 2026-06-21: Merged `codex/t2-engine` into `main`, created
+  `codex/t2.3-fitters`, and completed T2.3. Focused engine tests pass with
+  23 tests across 4 files; `npm run typecheck` exits 0.
 - 2026-06-21: T0.2 verified complete (live /api/health check + passing
   integration test against real Neon-backed Postgres). Committed full working
   tree to `main` (a3621ce) as a shared baseline. Claiming T0.3 in a separate
