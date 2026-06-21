@@ -17,6 +17,7 @@ remains the formal dashboard.
 | T2.3 | Done | current session | codex/t2.3-fitters | Added elicitation-to-param fitters in `lib/engine/fitters.ts` with empirical round-trip and invalid-input tests. |
 | T2.4 | Done | current session | codex/t2.4-tree-schema | Added canonical tree types, recursive Zod schema, output-type helper, and traversal utilities in `lib/engine/tree.ts`. |
 | T2.5 | Done | current session | codex/t2.5-combinators | Added composite evaluation helpers in `lib/engine/combinators.ts` with truth-table, arithmetic, and invalid-input tests. |
+| T2.6 | Done | current session | codex/t2.6-tree-validation | Added `validateTree()` in `lib/engine/validate.ts` with path-based, human-readable errors for root type, arity, child typing, and param ranges. |
 
 ## Coordination rules
 
@@ -59,3 +60,6 @@ remains the formal dashboard.
 - 2026-06-21: Created `codex/t2.5-combinators` and completed T2.5 with
   composite evaluation helpers in `lib/engine/combinators.ts`. Engine tests
   now pass with 55 tests across 6 files; `npm run typecheck` exits 0.
+- 2026-06-21: Created `codex/t2.6-tree-validation` and completed T2.6 with
+  `validateTree()` in `lib/engine/validate.ts`. Engine tests now pass with
+  62 tests across 7 files; `npm run typecheck` exits 0.
