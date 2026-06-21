@@ -24,8 +24,9 @@ Treat these files as coordination-sensitive:
 
 - `package.json`
 - `package-lock.json`
-- `README.md`
-- `tracker.html`
+- `README.md` (prose only — the `TRACKER:START`/`END` block is auto-generated)
+- `BUILD_PLAN.md`
+- `PROGRESS.md`
 - test/build config files
 - database schema and migration files
 
@@ -35,11 +36,15 @@ the change minimal.
 ## Task tracker
 
 - `BUILD_PLAN.md` is the scope source of truth.
-- `PROGRESS.md` is the lightweight coordination log between sessions.
-- `tracker.html` is the formal ticket dashboard.
-- Update `tracker.html` only when a ticket materially changes state.
-- Keep `SUMMARY`, `LAST_UPDATED`, and the relevant ticket `progress` flags in
-  `tracker.html` in sync.
+- `PROGRESS.md` is the lightweight coordination log between sessions and the
+  single source of all ticket/phase **status** (`progress` flags, `humanVerified`,
+  phase review gates, the summary).
+- `tracker.html` and the README `TRACKER` block are **generated artifacts** —
+  never hand-edit or commit them on a feature branch. Reflect status changes by
+  editing `BUILD_PLAN.md` (scope) and `PROGRESS.md` (status); run
+  `npm run tracker:generate` locally only if you want to preview the dashboard.
+  On `main`, CI regenerates and commits `tracker.html` + the README block
+  automatically, so they always match the markdown without merge conflicts.
 - Do not mark a ticket complete unless its acceptance criteria and listed tests
   are satisfied.
 - If human verification is required, leave `humanVerified: false` and state what
@@ -64,8 +69,9 @@ phase is reported as complete, a different agent must review it.
   identify severity, file/location, and required remediation.
 - Any material finding returns the phase to `Changes requested`. The original
   implementing agent fixes it; the independent reviewer then re-reviews.
-- Only the independent reviewer may set `phaseReview.status` to `passed` in
-  `tracker.html` and record their identity, date, and evidence in `PROGRESS.md`.
+- Only the independent reviewer may set a phase's review gate to `passed` in the
+  `## Phase review gates` table of `PROGRESS.md` (which flows into
+  `tracker.html`), recording their identity, date, and evidence there.
 - `humanVerified` remains a separate ticket-level gate for actions or judgments
   only the project owner can perform. Independent agent review does not replace
   it.

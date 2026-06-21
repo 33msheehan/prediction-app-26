@@ -79,3 +79,36 @@ jobs:
       - run: npx playwright install --with-deps chromium
 
       - run: npm run test:e2e
+
+  # tracker.html and the README TRACKER block are generated from BUILD_PLAN.md +
+  # PROGRESS.md. Agents edit only those two files; this job keeps the rendered
+  # artifacts in sync on main so feature branches never touch (and never conflict
+  # on) the generated output.
+  sync-tracker:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run tracker:generate
+
+      - name: Commit regenerated tracker if changed
+        run: |
+          if git diff --quiet -- tracker.html README.md; then
+            echo "tracker.html and README already in sync."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tracker.html README.md
+          git commit -m "chore: regenerate tracker from BUILD_PLAN/PROGRESS [skip ci]"
+          git push
