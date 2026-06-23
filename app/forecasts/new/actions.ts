@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
-import { createForecastWithInitialVersion } from '@/lib/db/repository';
+import { createForecast } from '@/lib/db/repository';
 import type { CreateForecastInput } from '@/lib/validation/forecast';
 
 function stringValue(formData: FormData, key: string) {
@@ -53,10 +53,9 @@ export async function createForecastAction(formData: FormData) {
     throw new Error('Unauthorized');
   }
 
-  const { forecast } = await createForecastWithInitialVersion(
-    session.user.id,
-    parseCreateForecastInput(formData),
-  );
+  // Create the forecast with no initial version — the user builds the tree
+  // from an empty canvas in the editor, and the first save persists version 1.
+  const forecast = await createForecast(session.user.id, parseCreateForecastInput(formData));
 
   revalidatePath('/');
   redirect(`/forecasts/${forecast.id}`);

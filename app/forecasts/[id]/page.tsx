@@ -17,44 +17,32 @@ export default async function ForecastPage({ params }: { params: Promise<{ id: s
     notFound();
   }
 
-  const treeResult = TreeSchema.safeParse(forecast.currentTree);
-  if (!treeResult.success) {
+  // A forecast can exist with no version yet (created from the dashboard but
+  // not built/saved). In that case there is no tree — open the editor empty.
+  const treeResult =
+    forecast.currentTree === null ? null : TreeSchema.safeParse(forecast.currentTree);
+  if (treeResult && !treeResult.success) {
     notFound();
   }
+  const initialTree = treeResult?.success ? treeResult.data : null;
 
   return (
-    <main className="flex-1 px-6 py-8">
-      <div className="mx-auto max-w-4xl space-y-6">
-        <div>
-          <p className="text-sm tracking-wide text-black/50 uppercase">Forecast editor</p>
-          <h1 className="mt-2 text-3xl font-semibold">{forecast.title}</h1>
-          {forecast.description ? (
-            <p className="mt-2 max-w-3xl text-sm text-black/70">{forecast.description}</p>
-          ) : null}
+    <main className="flex-1 px-6 py-10">
+      <div className="mx-auto max-w-5xl space-y-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs font-medium tracking-wide text-subtle uppercase">Forecast editor</p>
+            <h1 className="mt-2 text-2xl font-semibold text-fg">{forecast.title}</h1>
+            {forecast.description ? (
+              <p className="mt-2 max-w-3xl text-sm text-muted">{forecast.description}</p>
+            ) : null}
+          </div>
+          <span className="rounded-full bg-panel px-3 py-1 text-xs font-medium text-muted capitalize">
+            {forecast.status}
+          </span>
         </div>
 
-        <section className="grid gap-4 md:grid-cols-3">
-          <div className="rounded border border-black/10 p-4">
-            <p className="text-sm text-black/60">Headline</p>
-            <p className="mt-2 text-2xl font-semibold">
-              {forecast.headlineP === null
-                ? 'No headline yet'
-                : `${Math.round(forecast.headlineP * 100)}%`}
-            </p>
-          </div>
-          <div className="rounded border border-black/10 p-4">
-            <p className="text-sm text-black/60">Status</p>
-            <p className="mt-2 text-2xl font-semibold capitalize">{forecast.status}</p>
-          </div>
-          <div className="rounded border border-black/10 p-4">
-            <p className="text-sm text-black/60">Current version</p>
-            <p className="mt-2 text-2xl font-semibold">
-              {forecast.currentVersionId ? 'Loaded' : 'Missing'}
-            </p>
-          </div>
-        </section>
-
-        <TreeEditorShell forecastId={forecast.id} initialTree={treeResult.data} />
+        <TreeEditorShell forecastId={forecast.id} initialTree={initialTree} />
       </div>
     </main>
   );

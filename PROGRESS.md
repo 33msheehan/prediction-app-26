@@ -48,6 +48,7 @@ blank for false.
 | T3.5   | x       | x                     |                | Added composite-node configuration in the editor: `k_of_n` enforces `1 <= k <= n`, `threshold` edits `op` + `value`, and composite cards always surface their output type / accepted child type. Added component coverage for `k_of_n` constraint rejection alongside the existing structure-editor tests; local lint/typecheck/test/build are green. |
 | T3.6   | x       | x                     |                | Added a debounced live headline panel in the editor using client-side `runForecast()`, with headline probability, SE, 95% CI, and invalid-tree guidance when recomputation is disabled. Added a component test that edits a leaf and verifies the debounced headline recompute plus CI display; local lint/typecheck/test/build are green. |
 | T3.7   | x       | x                     |                | Added version persistence from the editor via `POST /api/forecasts/[id]/versions`, which appends `source:'edit'` versions through the repository layer and refreshes the page after save. Added route tests for the new endpoint's auth/404/400/200 branches; repository-level append/reload/invalid-tree coverage is also green when run with a real `POSTGRES_URL`, as confirmed in PR #10's independent review and green CI. |
+| T3.8   | x       | x                     |                | Editor UX redesign on `claude/t3.8-editor-redesign`: master–detail editor with `tree`/`split`/`node` focus modes (persisted per-forecast in `localStorage`), nested-container structure pane with combine-rule badges + colored output rails + select/add/reorder/delete, pinned live headline, and a design-system foundation fix (semantic tokens, working dark mode, and the body-font bug where `globals.css` hardcoded Arial over the loaded Geist). Pure UI — engine/fitters/validation/repository/save endpoint untouched. Building-flow ergonomics added to cut clicks for deep trees: one-click typed-child chips (pick the type, node is created already-typed + selected — no separate type dropdown), auto-inserted valid starter child for fixed-arity composites (`threshold`/`not`), subtree duplicate, and inline rename (double-click) in the structure pane. A dev-only harness route `app/dev/editor` (404s in production, outside the proxy's protected prefixes) renders the editor with no auth/DB for interactive iteration + screenshots. Empty-canvas start: new forecasts are now created with **no initial version** (create flow uses `createForecast`, not `createForecastWithInitialVersion` — this changes T3.1's "persist an initial version" behavior), and the editor opens on a root chooser offering only boolean-output types (Yes/No, And, Or, Not, K-of-N, Threshold); the first save persists version 1. The forecast page renders the empty editor when there's no current version. Node choosers (root chooser, add-child chips, tree-row add menu) now show per-type icons (distribution silhouettes for leaves, logic/math glyphs for composites). `TreeEditorShell` tests rewritten/expanded for the select-then-edit model + empty-start (14 tests); full suite 132 passed / 14 skipped, lint/typecheck/build green. Verified in-browser in light + dark across all three focus modes. Still needs the human UX pass. |
 
 Tickets not listed above (T1.2 onward, all of Phases 3–8) are not started —
 omit a row until work begins.
@@ -65,7 +66,7 @@ Review status vocabulary: `not_ready`, `pending`, `in_review`,
 | Phase 0 | passed        | Codex    | 2026-06-21  | Codex's independent review passed T0.1, T0.2, T0.4, T0.5 and returned T0.3 to changes requested solely because the required ephemeral-Neon migration CI step was absent. That step has since been implemented and fixed (see T0.3 above); remote CI is green. Phase 0 is complete. |
 | Phase 1 | passed        | Claude + Codex | 2026-06-21  | User confirmed Phase 1 received two independent LLM reviews and should now be treated as fully complete. The earlier Phase 1 PR-review findings (route-guard public-route prefix matching and proxy-layer test coverage gaps) were fixed before this status change; T1.1 remains human-verified and T1.2–T1.4 remained green against the real Neon DB at review time.                                                                                                                                                 |
 | Phase 2 | passed        | Claude   | 2026-06-21  | Independently reviewed T2.1–T2.8 (implemented by Codex) against `BUILD_PLAN.md` §4: read all 8 `lib/engine` source files, verified all 9 leaf distributions, all 7 combinators, all 5 `validateTree()` rules, and the runner's analytic anchors. Found and fixed two issues on `codex/phase-2-independent-review`: (1) the triangular/PERT schema allowed `min === max` while the elicitation fitter rejected it — schema now requires `min < max`; (2) `validateTree()` had no duplicate-node-id check, which the data model relies on for per-node history reconstruction — added `validateUniqueIds()`. Added 3 regression tests. Reran lint, typecheck, full suite (78 passed, 2 skipped), and `next build` — all clean. |
-| Phase 3 | pending       |          |             | Implementation and listed tests for T3.1-T3.7 are now complete on PR #10 after adding the missing leaf/composite/headline/route coverage. Independent re-review is still required, and the user still needs to perform the human UX verification called out on T3.3/T3.4/T3.6.                                                                                                              |
+| Phase 3 | pending       |          |             | Implementation and listed tests for T3.1-T3.7 are complete on PR #10. T3.8 (editor UX redesign) is now implemented and tested on `claude/t3.8-editor-redesign` and supersedes the editor look the human UX pass was waiting on. Independent re-review is still required, and the user still needs to perform the human UX verification (now against the redesigned editor).                                                                                                              |
 | Phase 4 | not_ready     |          |             |                                                                                                                                                                                                                                                                                    |
 | Phase 5 | not_ready     |          |             |                                                                                                                                                                                                                                                                                    |
 | Phase 6 | not_ready     |          |             |                                                                                                                                                                                                                                                                                    |
@@ -80,19 +81,21 @@ above.
 
 ### Where we are
 
-Phases 0, 1, and 2 are complete. Phase 3 is now implemented end to end on PR
-#10: T3.1-T3.3 cover create/list/editor-shell, and T3.4-T3.7 add leaf and
-composite editing, a debounced live headline, and save-to-version persistence
-from the editor. Local lint, typecheck, the full unit suite, and production
-build are green, and the PR review also confirmed the DB-backed T3 tests pass
-with a real `POSTGRES_URL`; Phase 3 is ready for independent re-review.
+Phases 0, 1, and 2 are complete. Phase 3 is implemented end to end on PR #10
+(T3.1-T3.7: create/list/editor, leaf + composite editing, debounced live
+headline, save-to-version). On top of that, T3.8 (a full editor UX redesign)
+is implemented and tested on `claude/t3.8-editor-redesign`: a master–detail
+editor with tree/split/node focus modes, a nested-container structure pane for
+building 2–3 level trees, a pinned live headline, and a design-system/dark-mode
+foundation fix. Lint, typecheck, the full unit suite (128 passed / 14 skipped),
+and production build are green; verified in-browser in light + dark.
 
 ### Next steps
 
-1. Have an independent agent re-review PR #10 now that the missing T3.4-T3.7
-   tests are in place.
-2. Perform the human UX verification still called out on T3.3, T3.4, and T3.6
-   before treating Phase 3 as fully closed.
+1. Open a PR for `claude/t3.8-editor-redesign` and have an independent agent
+   review it alongside the existing PR #10 work.
+2. Perform the human UX verification against the redesigned editor (the whole
+   point of T3.8) before treating Phase 3 as fully closed.
 
 ## Coordination rules
 

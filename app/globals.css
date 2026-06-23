@@ -1,26 +1,117 @@
 @import "tailwindcss";
 
+/*
+  Design tokens. Every surface/text/border/accent color is a semantic token
+  so the whole app adapts to light and dark mode from one place. Components
+  use the mapped Tailwind utilities (bg-surface, text-muted, border-line,
+  bg-accent, bg-bool-soft, …) rather than hardcoded black/white shades.
+*/
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --page: #f6f6f7;
+  --surface: #ffffff;
+  --panel: #f4f4f5;
+  --fg: #18181b;
+  --muted: #52525b;
+  --subtle: #8a8a93;
+  --line: rgba(24, 24, 27, 0.1);
+  --line-strong: rgba(24, 24, 27, 0.2);
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --accent: #534ab7;
+  --accent-fg: #ffffff;
+  --accent-soft: #eeedfe;
+  --accent-soft-fg: #3c3489;
+
+  --ok: #0f6e56;
+  --ok-soft: #e1f5ee;
+  --ok-soft-fg: #0f6e56;
+  --warn: #854f0b;
+  --warn-soft: #faeeda;
+  --warn-soft-fg: #854f0b;
+  --bad: #a32d2d;
+  --bad-soft: #fcebeb;
+  --bad-soft-fg: #a32d2d;
+
+  --bool: #1d9e75;
+  --bool-soft: #e1f5ee;
+  --bool-soft-fg: #0f6e56;
+  --num: #378add;
+  --num-soft: #e6f1fb;
+  --num-soft-fg: #185fa5;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --page: #0b0b0d;
+    --surface: #161618;
+    --panel: #1e1e21;
+    --fg: #f4f4f5;
+    --muted: #a1a1aa;
+    --subtle: #71717a;
+    --line: rgba(255, 255, 255, 0.12);
+    --line-strong: rgba(255, 255, 255, 0.22);
+
+    --accent: #8b81f0;
+    --accent-fg: #18181b;
+    --accent-soft: #2a2566;
+    --accent-soft-fg: #cecbf6;
+
+    --ok: #5dcaa5;
+    --ok-soft: #0b3a2f;
+    --ok-soft-fg: #9fe1cb;
+    --warn: #ef9f27;
+    --warn-soft: #3a2a08;
+    --warn-soft-fg: #fac775;
+    --bad: #f09595;
+    --bad-soft: #3a1414;
+    --bad-soft-fg: #f7c1c1;
+
+    --bool: #5dcaa5;
+    --bool-soft: #0b3a2f;
+    --bool-soft-fg: #9fe1cb;
+    --num: #85b7eb;
+    --num-soft: #0c2a45;
+    --num-soft-fg: #b5d4f4;
   }
 }
 
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-panel: var(--panel);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-fg: var(--accent-soft-fg);
+
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-ok-soft-fg: var(--ok-soft-fg);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-warn-soft-fg: var(--warn-soft-fg);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-bad-soft-fg: var(--bad-soft-fg);
+
+  --color-bool: var(--bool);
+  --color-bool-soft: var(--bool-soft);
+  --color-bool-soft-fg: var(--bool-soft-fg);
+  --color-num: var(--num);
+  --color-num-soft: var(--num-soft);
+  --color-num-soft-fg: var(--num-soft-fg);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--page);
+  color: var(--fg);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }

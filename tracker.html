@@ -368,13 +368,13 @@
 // scripts/generate-tracker.mjs. Re-run `npm run tracker:generate` to refresh,
 // or just `npm run build` (it runs as a prebuild step).
 // status: "todo" | "progress" | "done"
-const LAST_UPDATED = "2026-06-21";
+const LAST_UPDATED = "2026-06-23";
 
 const SUMMARY = {
-  "where": "Phases 0, 1, and 2 are complete. Phase 3 is now implemented end to end on PR #10: T3.1-T3.3 cover create/list/editor-shell, and T3.4-T3.7 add leaf and composite editing, a debounced live headline, and save-to-version persistence from the editor. Local lint, typecheck, the full unit suite, and production build are green, and the PR review also confirmed the DB-backed T3 tests pass with a real <code>POSTGRES_URL</code>; Phase 3 is ready for independent re-review.",
+  "where": "Phases 0, 1, and 2 are complete. Phase 3 is implemented end to end on PR #10 (T3.1-T3.7: create/list/editor, leaf + composite editing, debounced live headline, save-to-version). On top of that, T3.8 (a full editor UX redesign) is implemented and tested on <code>claude/t3.8-editor-redesign</code>: a master–detail editor with tree/split/node focus modes, a nested-container structure pane for building 2–3 level trees, a pinned live headline, and a design-system/dark-mode foundation fix. Lint, typecheck, the full unit suite (128 passed / 14 skipped), and production build are green; verified in-browser in light + dark.",
   "next": [
-    "Have an independent agent re-review PR #10 now that the missing T3.4-T3.7 tests are in place.",
-    "Perform the human UX verification still called out on T3.3, T3.4, and T3.6 before treating Phase 3 as fully closed."
+    "Open a PR for <code>claude/t3.8-editor-redesign</code> and have an independent agent review it alongside the existing PR #10 work.",
+    "Perform the human UX verification against the redesigned editor (the whole point of T3.8) before treating Phase 3 as fully closed."
   ]
 };
 
@@ -1116,6 +1116,41 @@ const phases = [
         ],
         "human": {
           "needed": false
+        },
+        "progress": {
+          "started": true,
+          "testsWritten": true,
+          "humanVerified": false
+        }
+      },
+      {
+        "id": "T3.8",
+        "title": "Editor UX redesign (focus modes + tree builder)",
+        "goal": "Make the editor pleasant to use and capable of building 2–3 level trees without a wall of stacked forms. Pure UI/UX work — the engine, fitters, validation, repository, and save endpoint are unchanged.",
+        "implementation": [
+          "Replace the always-expanded single-column outline with a master–detail editor that has three preset <strong>focus modes</strong> — <code>tree</code> (structure pane fills the canvas), <code>split</code> (outline + node detail side by side), <code>node</code> (detail pane fills, tree collapses to a rail). The structure pane renders nesting as containers with a colored output-type rail and a combine-rule badge per composite (<code>all true</code>, <code>any true</code>, <code>k of n</code>, <code>≥ value</code>), with inline add-child and per-row reorder/delete. The selected node opens in the detail pane (label, type, elicitation inputs, distribution preview, composite config, inline validation). Headline (p / SE / 95% CI) is pinned in the editor header in every mode. Mode + collapse state persist per-forecast in <code>localStorage</code>. Also fix the design-system foundation: real tokens + an accent ramp, working dark mode across all components, and the overridden body font (<code>globals.css</code> hardcodes Arial over the loaded Geist)"
+        ],
+        "acceptance": [
+          "All T3.3–T3.7 behaviour still works (add/delete/move/rename, leaf + composite editing, blocked invalid wiring, live headline, save version)",
+          "A node is selected to edit it",
+          "Focus modes switch the layout",
+          "The app is legible in light and dark mode"
+        ],
+        "tests": [
+          "Rewrite <code>TreeEditorShell</code> component tests for the select-then-edit model (select node, edit in detail, assert preview/headline)",
+          "Keep route/preview/engine tests untouched",
+          "Lint/typecheck/build green"
+        ],
+        "dependsOn": [
+          "T3.3",
+          "T3.4",
+          "T3.5",
+          "T3.6",
+          "T3.7"
+        ],
+        "human": {
+          "needed": true,
+          "reason": "The whole point — confirm the editor actually feels good to build a real multi-level forecast in. Verify alongside the rest of Phase 3."
         },
         "progress": {
           "started": true,
