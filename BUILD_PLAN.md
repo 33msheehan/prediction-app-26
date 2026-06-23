@@ -501,6 +501,14 @@ Each ticket: **Goal · Implementation · Acceptance criteria · Tests · Depends
 - *Depends on:* T1.3, T3.6
 - *Human:* —
 
+**T3.8 — Editor UX redesign (focus modes + tree builder)**
+- *Goal:* Make the editor pleasant to use and capable of building 2–3 level trees without a wall of stacked forms. Pure UI/UX work — the engine, fitters, validation, repository, and save endpoint are unchanged.
+- *Implementation:* Replace the always-expanded single-column outline with a master–detail editor that has three preset **focus modes** — `tree` (structure pane fills the canvas), `split` (outline + node detail side by side), `node` (detail pane fills, tree collapses to a rail). The structure pane renders nesting as containers with a colored output-type rail and a combine-rule badge per composite (`all true`, `any true`, `k of n`, `≥ value`), with inline add-child and per-row reorder/delete. The selected node opens in the detail pane (label, type, elicitation inputs, distribution preview, composite config, inline validation). Headline (p / SE / 95% CI) is pinned in the editor header in every mode. Mode + collapse state persist per-forecast in `localStorage`. Also fix the design-system foundation: real tokens + an accent ramp, working dark mode across all components, and the overridden body font (`globals.css` hardcodes Arial over the loaded Geist).
+- *Acceptance:* All T3.3–T3.7 behaviour still works (add/delete/move/rename, leaf + composite editing, blocked invalid wiring, live headline, save version); a node is selected to edit it; focus modes switch the layout; the app is legible in light and dark mode.
+- *Tests:* rewrite `TreeEditorShell` component tests for the select-then-edit model (select node, edit in detail, assert preview/headline); keep route/preview/engine tests untouched; lint/typecheck/build green.
+- *Depends on:* T3.3, T3.4, T3.5, T3.6, T3.7
+- *Human:* The whole point — confirm the editor actually feels good to build a real multi-level forecast in. Verify alongside the rest of Phase 3.
+
 ### Phase 4 — Living forecasts: check-ins, history, update discipline
 
 **T4.1 — Version history wiring**

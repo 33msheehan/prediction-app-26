@@ -236,6 +236,8 @@ const leafNodeSchema = z.union([
 
 export const LeafNodeSchema = leafNodeSchema;
 
+const omittedUndefinedConfig = z.undefined().optional().transform(() => undefined);
+
 export const TreeNodeSchema: z.ZodType<TreeNode> = z.lazy(() =>
   z.union([
     leafNodeSchema,
@@ -243,21 +245,21 @@ export const TreeNodeSchema: z.ZodType<TreeNode> = z.lazy(() =>
       ...baseNodeShape,
       kind: z.literal('composite'),
       type: z.literal('and'),
-      config: z.undefined(),
+      config: omittedUndefinedConfig,
       children: z.array(TreeNodeSchema),
     }),
     z.object({
       ...baseNodeShape,
       kind: z.literal('composite'),
       type: z.literal('or'),
-      config: z.undefined(),
+      config: omittedUndefinedConfig,
       children: z.array(TreeNodeSchema),
     }),
     z.object({
       ...baseNodeShape,
       kind: z.literal('composite'),
       type: z.literal('not'),
-      config: z.undefined(),
+      config: omittedUndefinedConfig,
       children: z.array(TreeNodeSchema),
     }),
     z.object({
@@ -271,14 +273,14 @@ export const TreeNodeSchema: z.ZodType<TreeNode> = z.lazy(() =>
       ...baseNodeShape,
       kind: z.literal('composite'),
       type: z.literal('count_true'),
-      config: z.undefined(),
+      config: omittedUndefinedConfig,
       children: z.array(TreeNodeSchema),
     }),
     z.object({
       ...baseNodeShape,
       kind: z.literal('composite'),
       type: z.literal('sum'),
-      config: z.undefined(),
+      config: omittedUndefinedConfig,
       children: z.array(TreeNodeSchema),
     }),
     z.object({

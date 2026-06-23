@@ -260,6 +260,54 @@ describe('TreeSchema', () => {
     expect(TreeSchema.parse(tree)).toEqual(tree);
   });
 
+  it('parses JSON-roundtripped no-config composites with omitted config', () => {
+    const tree = {
+      root: {
+        id: 'root',
+        label: 'Launch is on time',
+        kind: 'composite',
+        type: 'and',
+        config: undefined,
+        children: [
+          {
+            id: 'threshold-1',
+            label: 'Sales threshold',
+            kind: 'composite',
+            type: 'threshold',
+            config: { op: '>=', value: 10 },
+            children: [
+              {
+                id: 'sum-1',
+                label: 'Copies sold',
+                kind: 'composite',
+                type: 'sum',
+                config: undefined,
+                children: [
+                  {
+                    id: 'normal-1',
+                    label: 'Direct sales',
+                    kind: 'leaf',
+                    type: 'normal',
+                    params: { mu: 10, sigma: 2 },
+                    children: [],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    const roundtripped = JSON.parse(JSON.stringify(tree));
+    const parsed = TreeSchema.parse(roundtripped);
+
+    expect(parsed.root.kind).toBe('composite');
+    if (parsed.root.kind === 'composite') {
+      expect(parsed.root.config).toBeUndefined();
+    }
+  });
+
   it('rejects malformed leaf children', () => {
     const invalidTree = {
       root: {

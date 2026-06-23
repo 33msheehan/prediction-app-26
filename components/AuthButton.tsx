@@ -11,7 +11,12 @@ export async function AuthButton() {
           await signIn('github');
         }}
       >
-        <button type="submit">Sign in</button>
+        <button
+          className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg transition hover:opacity-90"
+          type="submit"
+        >
+          Sign in
+        </button>
       </form>
     );
   }
@@ -22,9 +27,16 @@ export async function AuthButton() {
         'use server';
         await signOut();
       }}
+      className="flex items-center gap-2"
     >
-      <button type="submit">
-        Sign out{session.user.email ? ` (${session.user.email})` : ''}
+      {session.user.email ? (
+        <span className="hidden text-xs text-subtle sm:inline">{session.user.email}</span>
+      ) : null}
+      <button
+        className="rounded-md border border-line px-3 py-1.5 text-sm text-muted transition hover:border-line-strong hover:text-fg"
+        type="submit"
+      >
+        Sign out
       </button>
     </form>
   );
