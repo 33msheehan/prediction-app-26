@@ -96,7 +96,7 @@ function kOfNEditorTree(): Tree {
 }
 
 function selectNode(label: string) {
-  return screen.getByRole('button', { name: `Select ${label}` });
+  return screen.getByRole('button', { name: new RegExp(`^Select ${label} \\(`) });
 }
 
 function headlinePanel() {
@@ -122,77 +122,135 @@ describe('TreeEditorShell', () => {
     const user = userEvent.setup();
     render(<TreeEditorShell forecastId="forecast-1" initialTree={editorTree()} />);
 
-    // Root is selected by default; the quick-add chips add a typed child directly.
+    // Root is selected by default; the quick-add chips add a modeled child directly.
     await user.click(screen.getByRole('button', { name: 'Add Or to root' }));
 
     expect(screen.getByDisplayValue('New or')).toBeInTheDocument();
   });
 
-  it('auto-adds a valid child when a threshold node is created', async () => {
+  it('auto-adds a total and quantity estimate when a target-reached node is created', async () => {
     const user = userEvent.setup();
     render(<TreeEditorShell forecastId="forecast-1" initialTree={editorTree()} />);
 
-    // Adding a threshold (needs exactly one numeric child) should drop in a
-    // starter normal leaf so the new branch is valid immediately.
     await user.click(screen.getByRole('button', { name: 'Add Threshold to root' }));
 
-    expect(screen.getByRole('button', { name: 'Select New normal' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Select Total quantity \(/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Select Quantity estimate \(/ })).toBeInTheDocument();
   });
 
   it('duplicates a node as a sibling', async () => {
     const user = userEvent.setup();
     render(<TreeEditorShell forecastId="forecast-1" initialTree={editorTree()} />);
 
-    await user.click(screen.getByRole('button', { name: 'Duplicate Child A' }));
+    await user.click(screen.getByRole('button', { name: 'Duplicate Child A (child-a)' }));
 
-    expect(screen.getAllByRole('button', { name: /^Select Child A$/ })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /^Select Child A \(/ })).toHaveLength(2);
+  });
+
+  it('keeps controls distinct when sibling nodes have the same visible label', async () => {
+    const user = userEvent.setup();
+    const tree = editorTree();
+    tree.root.children[1] = {
+      ...tree.root.children[1],
+      label: 'Child A',
+    };
+
+    render(<TreeEditorShell forecastId="forecast-1" initialTree={tree} />);
+
+    expect(screen.getAllByText('Child A')).toHaveLength(2);
+
+    await user.click(screen.getByRole('button', { name: 'Select Child A (child-b)' }));
+
+    expect(screen.getByLabelText('Label for child-b')).toBeInTheDocument();
+  });
+
+  it('repairs duplicate node ids from older saved trees before rendering', async () => {
+    const user = userEvent.setup();
+    render(
+      <TreeEditorShell
+        forecastId="forecast-1"
+        initialTree={{
+          root: {
+            id: 'root',
+            label: 'Root',
+            kind: 'composite',
+            type: 'and',
+            config: undefined,
+            children: [
+              {
+                id: 'node-2',
+                label: 'Repeated',
+                kind: 'leaf',
+                type: 'bernoulli',
+                params: { p: 0.5 },
+                children: [],
+              },
+              {
+                id: 'node-2',
+                label: 'Repeated',
+                kind: 'leaf',
+                type: 'bernoulli',
+                params: { p: 0.4 },
+                children: [],
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Select Repeated (node-2)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Select Repeated (node-3)' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Select Repeated (node-3)' }));
+
+    expect(screen.getByLabelText('Label for node-3')).toBeInTheDocument();
   });
 
   it('renames a node inline from the structure pane', async () => {
     const user = userEvent.setup();
     render(<TreeEditorShell forecastId="forecast-1" initialTree={editorTree()} />);
 
-    await user.dblClick(screen.getByRole('button', { name: 'Select Child A' }));
+    await user.dblClick(selectNode('Child A'));
     const input = screen.getByLabelText('Rename child-a');
     await user.clear(input);
     await user.type(input, 'Renamed inline{Enter}');
 
-    expect(screen.getByRole('button', { name: 'Select Renamed inline' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Select Renamed inline \(/ })).toBeInTheDocument();
   });
 
   it('deletes a non-root node from the structure pane', async () => {
     const user = userEvent.setup();
     render(<TreeEditorShell forecastId="forecast-1" initialTree={editorTree()} />);
 
-    await user.click(screen.getByRole('button', { name: 'Delete Child A' }));
+    await user.click(screen.getByRole('button', { name: 'Delete Child A (child-a)' }));
 
-    expect(screen.queryByRole('button', { name: 'Select Child A' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Select Child B' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Select Child A \(/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Select Child B \(/ })).toBeInTheDocument();
   });
 
   it('reorders sibling nodes', async () => {
     const user = userEvent.setup();
     render(<TreeEditorShell forecastId="forecast-1" initialTree={editorTree()} />);
 
-    await user.click(screen.getByRole('button', { name: 'Move Child A down' }));
+    await user.click(screen.getByRole('button', { name: 'Move Child A down (child-a)' }));
 
     const order = screen
-      .getAllByRole('button', { name: /^Select Child [AB]$/ })
+      .getAllByRole('button', { name: /^Select Child [AB] \(/ })
       .map((element) => element.getAttribute('aria-label'));
-    expect(order).toEqual(['Select Child B', 'Select Child A']);
+    expect(order).toEqual(['Select Child B (child-b)', 'Select Child A (child-a)']);
   });
 
-  it('blocks invalid child output type changes with a clear message', async () => {
+  it('hides invalid output type changes from the model selector', async () => {
     const user = userEvent.setup();
     render(<TreeEditorShell forecastId="forecast-1" initialTree={editorTree()} />);
 
     await user.click(selectNode('Child A'));
-    await user.selectOptions(screen.getByLabelText('Type for child-a'), 'normal');
 
-    expect(
-      screen.getByText('Normal produces numeric output, but this position requires boolean.'),
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText('Type for child-a')).toHaveValue('bernoulli');
+    const selector = screen.getByLabelText('Model type for child-a');
+    expect(within(selector).queryByRole('option', { name: 'Normal' })).not.toBeInTheDocument();
+    expect(within(selector).getByRole('option', { name: 'Bernoulli' })).toBeInTheDocument();
+    expect(selector).toHaveValue('bernoulli');
   });
 
   it('updates a bernoulli leaf preview from elicitation input', async () => {
@@ -203,8 +261,30 @@ describe('TreeEditorShell', () => {
     const probabilityInput = screen.getByLabelText('Probability for child-a');
     fireEvent.change(probabilityInput, { target: { value: '1' } });
 
-    expect(screen.getByDisplayValue('1')).toBeInTheDocument();
+    expect(probabilityInput).toHaveValue(1);
+    expect(screen.getByLabelText('Probability slider for child-a')).toHaveValue('1');
     expect(screen.getAllByText('100.0%')).toHaveLength(2);
+  });
+
+  it('keeps out-of-range probabilities as inline errors instead of committing them', async () => {
+    const user = userEvent.setup();
+    render(<TreeEditorShell forecastId="forecast-1" initialTree={editorTree()} />);
+
+    await user.click(selectNode('Child A'));
+    const probabilityInput = screen.getByLabelText('Probability for child-a');
+    fireEvent.change(probabilityInput, { target: { value: '2' } });
+
+    expect(screen.getByDisplayValue('2')).toBeInTheDocument();
+    expect(screen.getByText('Probability must be between 0 and 1')).toBeInTheDocument();
+  });
+
+  it('renders a visible histogram for numeric distribution previews', async () => {
+    const user = userEvent.setup();
+    render(<TreeEditorShell forecastId="forecast-1" initialTree={thresholdEditorTree()} />);
+
+    await user.click(selectNode('Normal estimate'));
+
+    expect(screen.getByRole('img', { name: 'Distribution histogram' })).toBeInTheDocument();
   });
 
   it('rejects invalid k_of_n values in the composite editor', async () => {
@@ -263,6 +343,66 @@ describe('TreeEditorShell', () => {
     expect(screen.getByText('P50 is required')).toBeInTheDocument();
   });
 
+  it('lists exact tree validation issues and links them to the affected node', async () => {
+    const user = userEvent.setup();
+    render(
+      <TreeEditorShell
+        forecastId="forecast-1"
+        initialTree={{
+          root: {
+            id: 'root',
+            label: 'Root threshold',
+            kind: 'composite',
+            type: 'threshold',
+            config: { op: '>=', value: 1 },
+            children: [
+              {
+                id: 'child-a',
+                label: 'Boolean child',
+                kind: 'leaf',
+                type: 'bernoulli',
+                params: { p: 0.5 },
+                children: [],
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    const issue = screen.getByRole('button', {
+      name: 'Boolean child (bernoulli): threshold expects numeric children, got boolean',
+    });
+    expect(issue).toBeInTheDocument();
+
+    await user.click(issue);
+
+    expect(screen.getByLabelText('Label for child-a')).toBeInTheDocument();
+  });
+
+  it('shows validation errors when save is clicked on an invalid tree', async () => {
+    const user = userEvent.setup();
+    render(
+      <TreeEditorShell
+        forecastId="forecast-1"
+        initialTree={{
+          root: {
+            id: 'root',
+            label: 'Root threshold',
+            kind: 'composite',
+            type: 'threshold',
+            config: { op: '>=', value: 1 },
+            children: [],
+          },
+        }}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Save version' }));
+
+    expect(screen.getAllByText('threshold requires exactly 1 child').length).toBeGreaterThan(0);
+  });
+
   it('starts from an empty canvas and creates the root from the chooser', async () => {
     const user = userEvent.setup();
     render(<TreeEditorShell forecastId="forecast-1" initialTree={null} />);
@@ -274,7 +414,7 @@ describe('TreeEditorShell', () => {
     await user.click(screen.getByRole('button', { name: 'Start with And' }));
 
     expect(screen.getByDisplayValue('Untitled forecast')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Select Untitled forecast' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Select Untitled forecast \(/ })).toBeInTheDocument();
   });
 
   it('collapses the panes via the focus-mode toggle', async () => {

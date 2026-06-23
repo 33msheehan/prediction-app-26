@@ -209,6 +209,22 @@ export async function appendVersion(userId: string, forecastId: string, input: A
   });
 }
 
+export async function deleteForecast(userId: string, forecastId: string) {
+  const forecast = await getForecast(userId, forecastId);
+  if (!forecast) throw new ForecastNotFoundError(forecastId);
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(forecasts)
+      .set({ currentVersionId: null })
+      .where(and(eq(forecasts.id, forecastId), eq(forecasts.userId, userId)));
+
+    await tx
+      .delete(forecasts)
+      .where(and(eq(forecasts.id, forecastId), eq(forecasts.userId, userId)));
+  });
+}
+
 export async function resolveForecast(
   userId: string,
   forecastId: string,

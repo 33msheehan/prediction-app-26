@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   fitBetaFromMeanConcentration,
@@ -13,6 +13,7 @@ import {
 } from '@/lib/engine/fitters';
 import { runForecast, type RunForecastResult } from '@/lib/engine/runner';
 import {
+  flattenTree,
   thresholdOperators,
   type CompositeNode,
   type CompositeNodeType,
@@ -34,6 +35,7 @@ import {
   describeBlockedTypeChange,
   getExpectedChildOutputType,
   getNodeOutputType,
+  getNodeTypeOption,
   moveNode,
   nodeTypeOptions,
   renameNode,
@@ -48,6 +50,7 @@ type FocusMode = 'tree' | 'split' | 'node';
 type TreeEditorShellProps = {
   forecastId: string;
   initialTree: Tree | null;
+  initialTreeError?: string;
 };
 
 type ForecastTreeEditorProps = {
@@ -88,8 +91,64 @@ function formatNumber(value: number) {
   return value.toFixed(2);
 }
 
+function formatNodeType(type: LeafNodeType | CompositeNodeType) {
+  return type.replaceAll('_', ' ');
+}
+
 function draftKey(nodeId: string, field: string) {
   return `${nodeId}:${field}`;
+}
+
+function displayNodeLabel(node: TreeNode) {
+  return node.label || 'Untitled';
+}
+
+function nodeActionLabel(action: string, node: TreeNode) {
+  return `${action} ${displayNodeLabel(node)} (${node.id})`;
+}
+
+function nextNodeIdSeed(tree: Tree) {
+  let max = 0;
+  for (const node of flattenTree(tree.root)) {
+    const match = /^node-(\d+)$/.exec(node.id);
+    if (match) {
+      max = Math.max(max, Number(match[1]));
+    }
+  }
+  return max;
+}
+
+function repairDuplicateNodeIds(tree: Tree): Tree {
+  const allIds = new Set(flattenTree(tree.root).map((node) => node.id));
+  const seenIds = new Set<string>();
+  let nextNumericId = nextNodeIdSeed(tree);
+
+  function allocateId() {
+    let id: string;
+    do {
+      nextNumericId += 1;
+      id = `node-${nextNumericId}`;
+    } while (allIds.has(id));
+    allIds.add(id);
+    return id;
+  }
+
+  function repairNode(node: TreeNode): TreeNode {
+    const id = seenIds.has(node.id) ? allocateId() : node.id;
+    seenIds.add(id);
+
+    if (node.kind === 'leaf') {
+      return { ...node, id };
+    }
+
+    return {
+      ...node,
+      id,
+      children: node.children.map(repairNode),
+    };
+  }
+
+  return { root: repairNode(tree.root) };
 }
 
 function parseFiniteNumber(rawValue: string, label: string) {
@@ -122,6 +181,36 @@ function parseNonNegativeInteger(rawValue: string, label: string) {
 
   if (!Number.isInteger(parsed) || parsed < 0) {
     throw new RangeError(`${label} must be a non-negative integer`);
+  }
+
+  return parsed;
+}
+
+function parseProbability(rawValue: string, label: string) {
+  const parsed = parseFiniteNumber(rawValue, label);
+
+  if (parsed < 0 || parsed > 1) {
+    throw new RangeError(`${label} must be between 0 and 1`);
+  }
+
+  return parsed;
+}
+
+function parseNonNegativeNumber(rawValue: string, label: string) {
+  const parsed = parseFiniteNumber(rawValue, label);
+
+  if (parsed < 0) {
+    throw new RangeError(`${label} must be >= 0`);
+  }
+
+  return parsed;
+}
+
+function parsePositiveNumber(rawValue: string, label: string) {
+  const parsed = parseFiniteNumber(rawValue, label);
+
+  if (parsed <= 0) {
+    throw new RangeError(`${label} must be > 0`);
   }
 
   return parsed;
@@ -175,15 +264,26 @@ function outputBadgeClass(outputType: OutputType) {
 }
 
 function MiniHistogram({ bars }: { bars: Array<{ label: string; proportion: number }> }) {
+  if (bars.length === 0) {
+    return (
+      <div className="flex h-28 items-center justify-center rounded-md border border-line bg-surface text-sm text-muted">
+        Preview unavailable
+      </div>
+    );
+  }
+
+  const maxProportion = Math.max(...bars.map((bar) => bar.proportion), 0.01);
+
   return (
-    <div className="space-y-2">
-      <div className="flex h-28 items-end gap-1.5">
+    <div className="space-y-2" role="img" aria-label="Distribution histogram">
+      <div className="flex h-32 items-end gap-1.5 rounded-md border border-line bg-surface px-2 pt-3 pb-2">
         {bars.map((bar) => (
-          <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={bar.label}>
+          <div className="flex h-full min-w-0 flex-1 flex-col justify-end" key={bar.label}>
             <div
               aria-label={`${bar.label} ${(bar.proportion * 100).toFixed(1)}%`}
-              className="w-full rounded-t-sm bg-num"
-              style={{ height: `${Math.max(6, bar.proportion * 100)}%` }}
+              className="min-h-2 w-full rounded-t-sm bg-num shadow-[inset_0_1px_0_rgba(255,255,255,0.35)]"
+              style={{ height: `${Math.max(8, (bar.proportion / maxProportion) * 100)}%` }}
+              title={`${bar.label}: ${formatPercent(bar.proportion)}`}
             />
           </div>
         ))}
@@ -204,6 +304,192 @@ const inputClass =
   'w-full rounded-md border border-line bg-surface px-3 py-2 text-fg outline-none focus:border-accent focus:ring-2 focus:ring-accent/30';
 const fieldLabelClass = 'space-y-1 text-sm text-fg';
 
+const typeLabels: Record<LeafNodeType | CompositeNodeType, string> = {
+  and: 'And',
+  bernoulli: 'Bernoulli',
+  beta: 'Beta',
+  binomial: 'Binomial',
+  count_true: 'Count True',
+  k_of_n: 'K of N',
+  lognormal: 'Lognormal',
+  normal: 'Normal',
+  not: 'Not',
+  or: 'Or',
+  pert: 'PERT',
+  poisson: 'Poisson',
+  sum: 'Sum',
+  threshold: 'Threshold',
+  triangular: 'Triangular',
+  uniform: 'Uniform',
+};
+
+const typeHints: Record<LeafNodeType | CompositeNodeType, string> = {
+  and: 'Use when every condition must be true.',
+  bernoulli: 'A direct yes/no probability.',
+  beta: 'A probability or proportion with uncertainty.',
+  binomial: 'Count successes across fixed trials.',
+  count_true: 'Turn several yes/no events into a number.',
+  k_of_n: 'Use when at least some conditions must be true.',
+  lognormal: 'Estimate a positive skewed quantity.',
+  normal: 'Estimate a quantity with P10 / P50 / P90.',
+  not: 'Invert one yes/no condition.',
+  or: 'Use when any condition can make the forecast true.',
+  pert: 'Estimate from minimum, likely, and maximum values.',
+  poisson: 'Estimate how many times something happens.',
+  sum: 'Add quantities together.',
+  threshold: 'Compare a quantity or total against a target.',
+  triangular: 'A simple minimum, likely, maximum estimate.',
+  uniform: 'Any value in a range is equally plausible.',
+};
+
+const typeExamples: Record<LeafNodeType | CompositeNodeType, string> = {
+  and: 'Example: launch happens AND pricing is approved.',
+  bernoulli: 'Example: “the launch happens” with p = 60%.',
+  beta: 'Example: conversion rate is around 5%, but uncertain.',
+  binomial: 'Example: 30 calls, each with a 20% close chance.',
+  count_true: 'Example: count how many milestones complete.',
+  k_of_n: 'Example: at least 2 of 3 suppliers deliver.',
+  lognormal: 'Example: revenue, traffic, or sales with a long upside tail.',
+  normal: 'Example: copies sold with P10 / P50 / P90 estimates.',
+  not: 'Example: “the launch does not happen.”',
+  or: 'Example: launch happens if A OR B succeeds.',
+  pert: 'Example: low / likely / high delivery time.',
+  poisson: 'Example: expected number of customer signups.',
+  sum: 'Example: add sales from multiple channels.',
+  threshold: 'Example: total copies sold is at least 10.',
+  triangular: 'Example: low / likely / high cost.',
+  uniform: 'Example: value is somewhere between 5 and 10.',
+};
+
+function TypeHelpGraphic({ type }: { type: LeafNodeType | CompositeNodeType }) {
+  if (type === 'bernoulli') {
+    return (
+      <svg aria-hidden="true" className="h-12 w-20 text-bool" viewBox="0 0 80 48">
+        <line x1="8" x2="72" y1="40" y2="40" stroke="currentColor" strokeOpacity="0.35" />
+        <rect x="18" y="24" width="14" height="16" rx="2" fill="currentColor" opacity="0.35" />
+        <rect x="48" y="10" width="14" height="30" rx="2" fill="currentColor" />
+        <text x="25" y="46" textAnchor="middle" fontSize="7" fill="currentColor">
+          no
+        </text>
+        <text x="55" y="46" textAnchor="middle" fontSize="7" fill="currentColor">
+          yes
+        </text>
+      </svg>
+    );
+  }
+
+  if (type === 'normal' || type === 'lognormal' || type === 'beta' || type === 'pert') {
+    const path =
+      type === 'lognormal'
+        ? 'M8 40 C16 40 18 10 28 10 C44 10 48 40 72 40'
+        : 'M8 40 C24 40 28 10 40 10 C52 10 56 40 72 40';
+    return (
+      <svg aria-hidden="true" className="h-12 w-20 text-num" viewBox="0 0 80 48">
+        <line x1="8" x2="72" y1="40" y2="40" stroke="currentColor" strokeOpacity="0.35" />
+        <path d={path} fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="3" />
+        <circle cx="40" cy="10" r="3" fill="currentColor" />
+      </svg>
+    );
+  }
+
+  if (type === 'binomial' || type === 'poisson' || type === 'count_true') {
+    return (
+      <svg aria-hidden="true" className="h-12 w-20 text-num" viewBox="0 0 80 48">
+        <line x1="8" x2="72" y1="40" y2="40" stroke="currentColor" strokeOpacity="0.35" />
+        <rect x="16" y="24" width="8" height="16" rx="1.5" fill="currentColor" opacity="0.5" />
+        <rect x="30" y="14" width="8" height="26" rx="1.5" fill="currentColor" />
+        <rect x="44" y="20" width="8" height="20" rx="1.5" fill="currentColor" opacity="0.75" />
+        <rect x="58" y="30" width="8" height="10" rx="1.5" fill="currentColor" opacity="0.35" />
+      </svg>
+    );
+  }
+
+  if (type === 'sum' || type === 'threshold') {
+    return (
+      <svg aria-hidden="true" className="h-12 w-20 text-num" viewBox="0 0 80 48">
+        <line x1="10" x2="70" y1="38" y2="38" stroke="currentColor" strokeOpacity="0.35" />
+        <path d="M14 30 H28 M21 23 V37" stroke="currentColor" strokeLinecap="round" strokeWidth="3" />
+        <path d="M34 30 H48 M41 23 V37" stroke="currentColor" strokeLinecap="round" strokeWidth="3" />
+        <path d="M54 24 H68 M54 32 H68" stroke="currentColor" strokeLinecap="round" strokeWidth="3" />
+        {type === 'threshold' ? (
+          <path d="M50 12 H70 M50 12 L58 6 M50 12 L58 18" stroke="currentColor" strokeLinecap="round" strokeWidth="2" />
+        ) : null}
+      </svg>
+    );
+  }
+
+  if (type === 'and' || type === 'or' || type === 'not' || type === 'k_of_n') {
+    const label = type === 'and' ? 'AND' : type === 'or' ? 'OR' : type === 'not' ? 'NOT' : 'K/N';
+    return (
+      <svg aria-hidden="true" className="h-12 w-20 text-bool" viewBox="0 0 80 48">
+        <circle cx="22" cy="24" r="8" fill="currentColor" opacity="0.35" />
+        <circle cx="58" cy="24" r="8" fill="currentColor" opacity="0.35" />
+        <line x1="30" x2="50" y1="24" y2="24" stroke="currentColor" strokeWidth="2" />
+        <text x="40" y="44" textAnchor="middle" fontSize="9" fontWeight="700" fill="currentColor">
+          {label}
+        </text>
+      </svg>
+    );
+  }
+
+  return (
+    <svg aria-hidden="true" className="h-12 w-20 text-num" viewBox="0 0 80 48">
+      <line x1="8" x2="72" y1="40" y2="40" stroke="currentColor" strokeOpacity="0.35" />
+      <path d="M12 40 L40 12 L68 40" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="3" />
+    </svg>
+  );
+}
+
+function TypeHelpContent({ type }: { type: LeafNodeType | CompositeNodeType }) {
+  return (
+    <div className="flex gap-3">
+      <div
+        className={`flex h-14 w-24 shrink-0 items-center justify-center rounded-md ${
+          getNodeTypeOption(type).outputType === 'boolean' ? 'bg-bool-soft' : 'bg-num-soft'
+        }`}
+      >
+        <TypeHelpGraphic type={type} />
+      </div>
+      <div>
+        <p className="font-medium text-fg">{typeLabels[type]}</p>
+        <p className="mt-1 text-xs leading-5 text-muted">
+          {typeHints[type]} {typeExamples[type]}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function TypeHelpHover({ type }: { type: LeafNodeType | CompositeNodeType }) {
+  return (
+    <div className="pointer-events-none absolute left-0 top-full z-30 mt-2 hidden w-72 rounded-lg border border-line bg-surface p-3 text-sm shadow-xl group-hover:block">
+      <TypeHelpContent type={type} />
+    </div>
+  );
+}
+
+function TypeLabelWithHelp({
+  type,
+  iconClassName,
+}: {
+  type: LeafNodeType | CompositeNodeType;
+  iconClassName?: string;
+}) {
+  return (
+    <span className="relative flex min-w-0 items-center gap-2">
+      <NodeTypeIcon type={type} className={iconClassName} />
+      <span>{typeLabels[type]}</span>
+      <span
+        aria-label={`About ${typeLabels[type]}`}
+        className="flex h-4 w-4 items-center justify-center rounded-full border border-line text-[10px] text-subtle"
+      >
+        ?
+      </span>
+      <TypeHelpHover type={type} />
+    </span>
+  );
+}
+
 type LeafEditorProps = {
   node: LeafNode;
   error?: string;
@@ -219,7 +505,17 @@ function LeafNodeEditor({
   onFieldChange,
   onBetaModeChange,
 }: LeafEditorProps) {
-  const preview = useMemo(() => buildLeafPreview(node), [node]);
+  const previewState = useMemo(() => {
+    try {
+      return { preview: buildLeafPreview(node), error: null };
+    } catch (error) {
+      return {
+        preview: null,
+        error: error instanceof Error ? error.message : 'Unable to build the preview.',
+      };
+    }
+  }, [node]);
+  const preview = previewState.preview;
   const bernoulliNode = node.type === 'bernoulli' ? (node as LeafNode<'bernoulli'>) : null;
   const binomialNode = node.type === 'binomial' ? (node as LeafNode<'binomial'>) : null;
   const poissonNode = node.type === 'poisson' ? (node as LeafNode<'poisson'>) : null;
@@ -234,31 +530,94 @@ function LeafNodeEditor({
       ? (node as LeafNode<'triangular'> | LeafNode<'pert'>)
       : null;
 
-  return (
-    <div className="space-y-4">
-      {bernoulliNode ? (
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className={fieldLabelClass}>
-            <span className="font-medium">Probability it happens</span>
-            <input
-              aria-label={`Probability for ${node.id}`}
-              className={inputClass}
-              onChange={(event) => onFieldChange(node, 'p', event.target.value)}
-              type="number"
-              value={getDraftValue(node.id, 'p', bernoulliNode.elicitation?.p ?? bernoulliNode.params.p)}
-            />
-          </label>
-          <div className="rounded-md border border-line bg-panel p-3 text-sm">
-            <p className="text-subtle">Implied yes-rate</p>
-            <p className="mt-2 text-2xl font-medium">
-              {preview.impliedProbability === undefined
-                ? 'n/a'
-                : formatPercent(preview.impliedProbability)}
-            </p>
+  if (bernoulliNode) {
+    const probability = bernoulliNode.params.p;
+    const noProbability = 1 - probability;
+
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg border border-line bg-panel p-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-muted">Probability</p>
+              <p className="mt-1 text-4xl font-semibold text-fg">{formatPercent(probability)}</p>
+            </div>
+            <label className="w-36 space-y-1 text-sm text-fg">
+              <span className="font-medium">p</span>
+              <input
+                aria-label={`Probability for ${node.id}`}
+                className={inputClass}
+                max="1"
+                min="0"
+                onChange={(event) => onFieldChange(node, 'p', event.target.value)}
+                step="0.01"
+                type="number"
+                value={getDraftValue(node.id, 'p', bernoulliNode.elicitation?.p ?? bernoulliNode.params.p)}
+              />
+            </label>
+          </div>
+
+          <input
+            aria-label={`Probability slider for ${node.id}`}
+            className="mt-5 w-full accent-bool"
+            max="1"
+            min="0"
+            onChange={(event) => onFieldChange(node, 'p', event.target.value)}
+            step="0.01"
+            type="range"
+            value={getDraftValue(node.id, 'p', bernoulliNode.elicitation?.p ?? bernoulliNode.params.p)}
+          />
+
+          <div className="mt-4 overflow-hidden rounded-lg border border-line bg-surface">
+            <div className="flex h-16">
+              <div
+                className="flex min-w-8 items-center justify-center bg-panel text-xs font-medium text-muted"
+                style={{ width: `${Math.max(4, noProbability * 100)}%` }}
+              >
+                No
+              </div>
+              <div
+                className="flex min-w-8 items-center justify-center bg-bool text-xs font-medium text-white"
+                style={{ width: `${Math.max(4, probability * 100)}%` }}
+              >
+                Yes
+              </div>
+            </div>
+            <div className="grid grid-cols-2 border-t border-line text-sm">
+              <div className="p-3">
+                <p className="text-subtle">No</p>
+                <p className="font-medium text-fg">{formatPercent(noProbability)}</p>
+              </div>
+              <div className="border-l border-line p-3">
+                <p className="text-subtle">Yes</p>
+                <p className="font-medium text-fg">{formatPercent(probability)}</p>
+              </div>
+            </div>
           </div>
         </div>
-      ) : null}
 
+        {error ? (
+          <div className="rounded-md border border-bad/40 bg-bad-soft p-3 text-sm text-bad-soft-fg">
+            {error}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-line bg-panel p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-muted">Estimate inputs</p>
+            <p className="mt-1 text-xs text-subtle">{typeHints[node.type]}</p>
+          </div>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${outputBadgeClass('numeric')}`}>
+            numeric
+          </span>
+        </div>
+        <div className="mt-4">
       {binomialNode ? (
         <div className="grid gap-3 md:grid-cols-2">
           <label className={fieldLabelClass}>
@@ -523,6 +882,8 @@ function LeafNodeEditor({
           </label>
         </div>
       ) : null}
+        </div>
+      </div>
 
       {error ? (
         <div className="rounded-md border border-bad/40 bg-bad-soft p-3 text-sm text-bad-soft-fg">
@@ -534,13 +895,19 @@ function LeafNodeEditor({
         <div className="rounded-lg border border-line bg-panel p-3">
           <p className="text-sm font-medium text-muted">Distribution preview</p>
           <div className="mt-3">
-            <MiniHistogram bars={preview.bars} />
+            {preview ? (
+              <MiniHistogram bars={preview.bars} />
+            ) : (
+              <div className="rounded-md border border-bad/40 bg-bad-soft p-3 text-sm text-bad-soft-fg">
+                {previewState.error}
+              </div>
+            )}
           </div>
         </div>
 
         <div className="rounded-lg border border-line bg-panel p-3 text-sm">
           <p className="font-medium text-muted">Implied values</p>
-          {preview.impliedQuantiles ? (
+          {preview?.impliedQuantiles ? (
             <dl className="mt-3 space-y-2">
               <div className="flex justify-between gap-3">
                 <dt className="text-subtle">P10</dt>
@@ -557,7 +924,8 @@ function LeafNodeEditor({
             </dl>
           ) : (
             <p className="mt-3 text-muted">
-              Boolean leaves show their implied yes-rate rather than numeric quantiles.
+              {previewState.error ??
+                'Boolean leaves show their implied yes-rate rather than numeric quantiles.'}
             </p>
           )}
         </div>
@@ -740,16 +1108,13 @@ function NodeTypeIcon({ type, className }: { type: LeafNodeType | CompositeNodeT
   }
 }
 
-const rootChooserHints: Partial<Record<LeafNodeType | CompositeNodeType, string>> = {
-  bernoulli: 'A single yes/no probability',
-  and: 'True only if all conditions hold',
-  or: 'True if any condition holds',
-  not: 'Negate a single condition',
-  k_of_n: 'True if at least k of n hold',
-  threshold: 'A numeric total clears a cutoff',
-};
-
-function RootChooser({ onChoose }: { onChoose: (type: LeafNodeType | CompositeNodeType) => void }) {
+function RootChooser({
+  onChoose,
+  notice,
+}: {
+  onChoose: (type: LeafNodeType | CompositeNodeType) => void;
+  notice?: string;
+}) {
   const rootTypes = nodeTypeOptions.filter((option) => option.outputType === 'boolean');
 
   return (
@@ -759,11 +1124,16 @@ function RootChooser({ onChoose }: { onChoose: (type: LeafNodeType | CompositeNo
         Pick how the top-level question resolves. Composites let you decompose it into conditions;
         you can always change the type or nest more later.
       </p>
+      {notice ? (
+        <div className="mt-4 rounded-md border border-warn/40 bg-warn-soft p-3 text-sm text-warn-soft-fg">
+          {notice}
+        </div>
+      ) : null}
       <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {rootTypes.map((option) => (
           <button
-            aria-label={`Start with ${option.label}`}
-            className="flex items-start gap-3 rounded-lg border border-line bg-surface p-3 text-left transition hover:border-accent hover:bg-accent-soft"
+            aria-label={`Start with ${typeLabels[option.type]}`}
+            className="group relative flex items-start gap-3 rounded-lg border border-line bg-surface p-3 text-left transition hover:border-accent hover:bg-accent-soft"
             key={option.type}
             onClick={() => onChoose(option.type)}
             type="button"
@@ -772,9 +1142,10 @@ function RootChooser({ onChoose }: { onChoose: (type: LeafNodeType | CompositeNo
               <NodeTypeIcon type={option.type} />
             </span>
             <span className="min-w-0">
-              <span className="block text-sm font-medium text-fg">{option.label}</span>
-              <span className="block text-xs text-muted">{rootChooserHints[option.type]}</span>
+              <span className="block text-sm font-medium text-fg">{typeLabels[option.type]}</span>
+              <span className="block text-xs text-muted">{typeHints[option.type]}</span>
             </span>
+            <TypeHelpHover type={option.type} />
           </button>
         ))}
       </div>
@@ -782,21 +1153,84 @@ function RootChooser({ onChoose }: { onChoose: (type: LeafNodeType | CompositeNo
   );
 }
 
-export function TreeEditorShell({ forecastId, initialTree }: TreeEditorShellProps) {
-  const [tree, setTree] = useState<Tree | null>(initialTree);
+function buildStarterNode(
+  type: LeafNodeType | CompositeNodeType,
+  id: string,
+  label: string,
+  nextId: () => string,
+): TreeNode {
+  const node = createNode(type, id, label);
+
+  if (node.kind === 'leaf') {
+    return node;
+  }
+
+  switch (type) {
+    case 'and':
+    case 'or':
+      return {
+        ...node,
+        children: [createNode('bernoulli', nextId(), 'New yes/no event')],
+      };
+    case 'not':
+      return {
+        ...node,
+        children: [createNode('bernoulli', nextId(), 'Event to invert')],
+      };
+    case 'k_of_n':
+      return {
+        ...node,
+        children: [
+          createNode('bernoulli', nextId(), 'Condition 1'),
+          createNode('bernoulli', nextId(), 'Condition 2'),
+        ],
+      };
+    case 'count_true':
+      return {
+        ...node,
+        children: [createNode('bernoulli', nextId(), 'Event to count')],
+      };
+    case 'sum':
+      return {
+        ...node,
+        children: [createNode('normal', nextId(), 'Quantity estimate')],
+      };
+    case 'threshold': {
+      const total = createNode('sum', nextId(), 'Total quantity') as CompositeNode<'sum'>;
+      return {
+        ...node,
+        config: { op: '>=', value: 10 },
+        children: [
+          {
+            ...total,
+            children: [createNode('normal', nextId(), 'Quantity estimate')],
+          },
+        ],
+      };
+    }
+  }
+
+  return node;
+}
+
+export function TreeEditorShell({ forecastId, initialTree, initialTreeError }: TreeEditorShellProps) {
+  const [tree, setTree] = useState<Tree | null>(() =>
+    initialTree ? repairDuplicateNodeIds(initialTree) : null,
+  );
 
   if (!tree) {
     return (
       <RootChooser
+        notice={initialTreeError}
         onChoose={(type) => {
-          const root = createNode(type, 'root', 'Untitled forecast');
-          if (root.kind === 'composite' && (type === 'threshold' || type === 'not')) {
-            const childType: LeafNodeType = type === 'threshold' ? 'normal' : 'bernoulli';
-            const child = createNode(childType, 'node-1', `New ${childType}`);
-            setTree({ root: { ...root, children: [child] } });
-            return;
-          }
-          setTree({ root });
+          let nextId = 1;
+          const allocateId = () => {
+            const id = `node-${nextId}`;
+            nextId += 1;
+            return id;
+          };
+
+          setTree({ root: buildStarterNode(type, 'root', 'Untitled forecast', allocateId) });
         }}
       />
     );
@@ -820,7 +1254,8 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
   const [headline, setHeadline] = useState<HeadlineState>({ status: 'idle' });
   const [headlinePending, setHeadlinePending] = useState(() => validateTree(initialTree).valid);
   const [saveState, setSaveState] = useState<SaveState>({ status: 'idle' });
-  const nextIdRef = useRef(1);
+  const usedNodeIdsRef = useRef(new Set(flattenTree(initialTree.root).map((node) => node.id)));
+  const nextIdRef = useRef(nextNodeIdSeed(initialTree));
 
   const storageKey = `forecast-editor:focus:${forecastId}`;
 
@@ -865,8 +1300,13 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
   }, [forecastId, tree, validation.valid]);
 
   function nextNodeId() {
-    nextIdRef.current += 1;
-    return `node-${nextIdRef.current}`;
+    let nextId: string;
+    do {
+      nextIdRef.current += 1;
+      nextId = `node-${nextIdRef.current}`;
+    } while (usedNodeIdsRef.current.has(nextId));
+    usedNodeIdsRef.current.add(nextId);
+    return nextId;
   }
 
   function clearNodeFeedback(nodeId: string) {
@@ -944,19 +1384,13 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
     updateTree(changeNodeType(tree, node.id, nextType));
   }
 
-  // Fixed-arity boolean composites (threshold / not) take exactly one child, so
-  // we drop in a sensible, already-valid starter child when one is created. That
-  // keeps the tree valid immediately and saves a separate "add child" step.
   function buildTypedNode(type: LeafNodeType | CompositeNodeType): TreeNode {
-    const node = createNode(type, nextNodeId(), `New ${type.replaceAll('_', ' ')}`);
-
-    if (node.kind === 'composite' && (type === 'threshold' || type === 'not')) {
-      const childType: LeafNodeType = type === 'threshold' ? 'normal' : 'bernoulli';
-      const child = createNode(childType, nextNodeId(), `New ${childType}`);
-      return { ...node, children: [child] };
-    }
-
-    return node;
+    return buildStarterNode(
+      type,
+      nextNodeId(),
+      `New ${typeLabels[type].toLowerCase()}`,
+      nextNodeId,
+    );
   }
 
   function canAddChild(node: TreeNode): boolean {
@@ -974,6 +1408,12 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
     const expected = getExpectedChildOutputType(node);
     return nodeTypeOptions.filter(
       (option) => expected === null || canUseNodeType(option.type, expected),
+    );
+  }
+
+  function compatibleTypeOptions(expectedOutputType: OutputType | null) {
+    return nodeTypeOptions.filter(
+      (option) => expectedOutputType === null || option.outputType === expectedOutputType,
     );
   }
 
@@ -1043,7 +1483,7 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
       switch (node.type) {
         case 'bernoulli': {
           const typedNode = node as LeafNode<'bernoulli'>;
-          const p = parseFiniteNumber(rawValue, 'Probability');
+          const p = parseProbability(rawValue, 'Probability');
           commitNode(typedNode.id, { ...typedNode, params: { p }, elicitation: { p } }, ['p']);
           return;
         }
@@ -1055,7 +1495,7 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
               : getDraftValue(typedNode.id, 'n', typedNode.elicitation?.n ?? typedNode.params.n),
             'Trials',
           );
-          const p = parseFiniteNumber(
+          const p = parseProbability(
             field === 'p'
               ? rawValue
               : getDraftValue(typedNode.id, 'p', typedNode.elicitation?.p ?? typedNode.params.p),
@@ -1066,7 +1506,7 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
         }
         case 'poisson': {
           const typedNode = node as LeafNode<'poisson'>;
-          const lambda = parseFiniteNumber(rawValue, 'Expected count');
+          const lambda = parseNonNegativeNumber(rawValue, 'Expected count');
           const fitted = fitPoissonFromExpectedCount({ lambda });
           commitNode(
             typedNode.id,
@@ -1123,11 +1563,11 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
           const typedNode = node as LeafNode<'beta'>;
 
           if (betaMode(typedNode) === 'mean') {
-            const mean = parseFiniteNumber(
+            const mean = parseProbability(
               field === 'mean' ? rawValue : getDraftValue(typedNode.id, 'mean', 0.5),
               'Mean',
             );
-            const concentration = parseFiniteNumber(
+            const concentration = parsePositiveNumber(
               field === 'concentration' ? rawValue : getDraftValue(typedNode.id, 'concentration', 4),
               'Concentration',
             );
@@ -1140,19 +1580,19 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
             return;
           }
 
-          const successes = parseFiniteNumber(
+          const successes = parseNonNegativeNumber(
             field === 'successes' ? rawValue : getDraftValue(typedNode.id, 'successes', 1),
             'Successes',
           );
-          const failures = parseFiniteNumber(
+          const failures = parseNonNegativeNumber(
             field === 'failures' ? rawValue : getDraftValue(typedNode.id, 'failures', 1),
             'Failures',
           );
-          const priorAlpha = parseFiniteNumber(
+          const priorAlpha = parsePositiveNumber(
             field === 'priorAlpha' ? rawValue : getDraftValue(typedNode.id, 'priorAlpha', 1),
             'Prior alpha',
           );
-          const priorBeta = parseFiniteNumber(
+          const priorBeta = parsePositiveNumber(
             field === 'priorBeta' ? rawValue : getDraftValue(typedNode.id, 'priorBeta', 1),
             'Prior beta',
           );
@@ -1178,6 +1618,9 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
             field === 'b' ? rawValue : getDraftValue(typedNode.id, 'b', typedNode.elicitation?.b ?? typedNode.params.b),
             'Maximum',
           );
+          if (a > b) {
+            throw new RangeError('Minimum must be <= maximum');
+          }
           commitNode(typedNode.id, { ...typedNode, params: { a, b }, elicitation: { a, b } }, ['a', 'b']);
           return;
         }
@@ -1314,7 +1757,16 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
   }
 
   async function handleSave() {
-    if (!validation.valid || saveState.status === 'saving') {
+    if (saveState.status === 'saving') {
+      return;
+    }
+
+    const currentValidation = validateTree(tree);
+    if (!currentValidation.valid) {
+      setSaveState({
+        status: 'error',
+        message: currentValidation.errors.map((error) => error.message).join(' '),
+      });
       return;
     }
 
@@ -1377,14 +1829,69 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
     return null;
   }
 
+  function findNodePath(node: TreeNode, id: string, path: string): string | null {
+    if (node.id === id) {
+      return path;
+    }
+    if (node.kind === 'leaf') {
+      return null;
+    }
+    for (const [index, child] of node.children.entries()) {
+      const found = findNodePath(child, id, `${path}.children[${index}]`);
+      if (found) {
+        return found;
+      }
+    }
+    return null;
+  }
+
+  function findNodeByPath(path: string): TreeNode | null {
+    if (!path.startsWith('root')) {
+      return null;
+    }
+
+    let current: TreeNode = tree.root;
+    for (const match of path.matchAll(/children\[(\d+)\]/g)) {
+      if (current.kind === 'leaf') {
+        return current;
+      }
+      const child = current.children[Number(match[1])];
+      if (!child) {
+        return current;
+      }
+      current = child;
+    }
+    return current;
+  }
+
+  function pathMatchesNode(errorPath: string, nodePath: string) {
+    return errorPath === nodePath || errorPath.startsWith(`${nodePath}.`);
+  }
+
   const selectedNode = findNode(tree.root, selectedId) ?? tree.root;
   const selectedParent = findParent(tree.root, selectedNode.id);
+  const selectedPath = findNodePath(tree.root, selectedNode.id, 'root') ?? 'root';
   const selectedExpectedOutputType = selectedParent
     ? getExpectedChildOutputType(selectedParent)
     : 'boolean';
+  const validationIssues = validation.errors.map((error) => {
+    const node = findNodeByPath(error.path);
+    return {
+      ...error,
+      nodeId: node?.id ?? null,
+      nodeLabel: node?.label ?? null,
+      nodeType: node?.type ?? null,
+    };
+  });
+  const selectedValidationErrors = validationIssues
+    .filter((error) => pathMatchesNode(error.path, selectedPath))
+    .map((error) => error.message);
   const selectedFieldError =
     Object.entries(fieldErrors).find(([key]) => key.startsWith(`${selectedNode.id}:`))?.[1] ??
     undefined;
+  const selectedError = [selectedFieldError, ...selectedValidationErrors]
+    .filter((message): message is string => Boolean(message))
+    .join(' ');
 
   function renderTreeNode(
     node: TreeNode,
@@ -1397,7 +1904,7 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
     const collapsed = collapsedIds[node.id] ?? false;
     const isSelected = node.id === selectedId;
     const hasNodeError = Object.keys(fieldErrors).some((key) => key.startsWith(`${node.id}:`));
-    const hasValidationError = validation.errors.some((error) => error.path === path);
+    const hasValidationError = validation.errors.some((error) => pathMatchesNode(error.path, path));
     const isComposite = node.kind === 'composite';
 
     return (
@@ -1411,7 +1918,9 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
         >
           {isComposite ? (
             <button
-              aria-label={collapsed ? `Expand ${node.label}` : `Collapse ${node.label}`}
+              aria-label={
+                collapsed ? nodeActionLabel('Expand', node) : nodeActionLabel('Collapse', node)
+              }
               className="flex h-5 w-5 items-center justify-center rounded text-subtle hover:text-fg"
               onClick={() => toggleCollapsed(node.id)}
               type="button"
@@ -1440,7 +1949,7 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
             />
           ) : (
             <button
-              aria-label={`Select ${node.label || 'Untitled'}`}
+              aria-label={nodeActionLabel('Select', node)}
               aria-pressed={isSelected}
               className="flex min-w-0 flex-1 items-center gap-2 text-left"
               onClick={() => setSelectedId(node.id)}
@@ -1452,7 +1961,7 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
               <span
                 className={`min-w-0 truncate text-sm ${isSelected ? 'font-medium text-accent-soft-fg' : 'text-fg'}`}
               >
-                {node.label || 'Untitled'}
+                {displayNodeLabel(node)}
               </span>
               {isComposite ? (
                 <span className="shrink-0 rounded-full bg-warn-soft px-2 py-0.5 text-[11px] font-medium text-warn-soft-fg">
@@ -1472,7 +1981,7 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
           <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
             {canAddChild(node) ? (
               <button
-                aria-label={`Add child to ${node.label}`}
+                aria-label={nodeActionLabel('Add child to', node)}
                 className="flex h-6 w-6 items-center justify-center rounded text-subtle hover:bg-surface hover:text-accent"
                 onClick={() => setAddMenuFor(addMenuFor === node.id ? null : node.id)}
                 type="button"
@@ -1483,7 +1992,7 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
             {parent ? (
               <>
                 <button
-                  aria-label={`Duplicate ${node.label}`}
+                  aria-label={nodeActionLabel('Duplicate', node)}
                   className="flex h-6 w-6 items-center justify-center rounded text-subtle hover:bg-surface hover:text-fg"
                   onClick={() => handleDuplicate(node, parent)}
                   type="button"
@@ -1491,7 +2000,7 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
                   ⧉
                 </button>
                 <button
-                  aria-label={`Move ${node.label} up`}
+                  aria-label={nodeActionLabel('Move', { ...node, label: `${displayNodeLabel(node)} up` })}
                   className="flex h-6 w-6 items-center justify-center rounded text-subtle hover:bg-surface hover:text-fg disabled:opacity-30"
                   disabled={siblingIndex === 0}
                   onClick={() => updateTree(moveNode(tree, node.id, 'up'))}
@@ -1500,7 +2009,7 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
                   ↑
                 </button>
                 <button
-                  aria-label={`Move ${node.label} down`}
+                  aria-label={nodeActionLabel('Move', { ...node, label: `${displayNodeLabel(node)} down` })}
                   className="flex h-6 w-6 items-center justify-center rounded text-subtle hover:bg-surface hover:text-fg disabled:opacity-30"
                   disabled={siblingIndex === siblingCount - 1}
                   onClick={() => updateTree(moveNode(tree, node.id, 'down'))}
@@ -1509,7 +2018,7 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
                   ↓
                 </button>
                 <button
-                  aria-label={`Delete ${node.label}`}
+                  aria-label={nodeActionLabel('Delete', node)}
                   className="flex h-6 w-6 items-center justify-center rounded text-subtle hover:bg-bad-soft hover:text-bad"
                   onClick={() => handleDelete(node, parent)}
                   type="button"
@@ -1535,7 +2044,7 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
                 </p>
                 {validChildTypes(node).map((option) => (
                   <button
-                    aria-label={`Add ${option.label} to ${node.label}`}
+                    aria-label={`Add ${typeLabels[option.type]} to ${displayNodeLabel(node)} (${node.id})`}
                     className="flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-sm text-fg hover:bg-panel"
                     key={option.type}
                     onClick={() => addTypedChild(node, option.type)}
@@ -1543,7 +2052,7 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
                   >
                     <span className="flex items-center gap-2">
                       <NodeTypeIcon type={option.type} className="text-muted" />
-                      {option.label}
+                      {typeLabels[option.type]}
                     </span>
                     <span
                       className={`h-1.5 w-1.5 rounded-full ${outputDotClass(option.outputType)}`}
@@ -1611,9 +2120,9 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
             />
           </label>
           <label className={fieldLabelClass}>
-            <span className="font-medium">Type</span>
+              <span className="font-medium">Model this as</span>
             <select
-              aria-label={`Type for ${selectedNode.id}`}
+              aria-label={`Model type for ${selectedNode.id}`}
               className={inputClass}
               onChange={(event) =>
                 handleTypeChange(
@@ -1625,26 +2134,35 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
               value={selectedNode.type}
             >
               <optgroup label="Leaves">
-                {nodeTypeOptions
+                {compatibleTypeOptions(selectedExpectedOutputType)
                   .filter((option) => option.kind === 'leaf')
                   .map((option) => (
                     <option key={option.type} value={option.type}>
-                      {option.label}
+                      {typeLabels[option.type]}
                     </option>
                   ))}
               </optgroup>
               <optgroup label="Composites">
-                {nodeTypeOptions
+                {compatibleTypeOptions(selectedExpectedOutputType)
                   .filter((option) => option.kind === 'composite')
                   .map((option) => (
                     <option key={option.type} value={option.type}>
-                      {option.label}
+                      {typeLabels[option.type]}
                     </option>
                   ))}
               </optgroup>
             </select>
+            <span className="block text-xs text-subtle">
+              Only choices that fit this part of the tree are shown.
+            </span>
           </label>
         </div>
+
+        {selectedNode.type ? (
+          <div className="rounded-lg border border-line bg-panel p-3">
+            <TypeHelpContent type={selectedNode.type} />
+          </div>
+        ) : null}
 
         {blockedMessage ? (
           <div className="rounded-md border border-bad/40 bg-bad-soft p-3 text-sm text-bad-soft-fg">
@@ -1654,7 +2172,7 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
 
         {selectedNode.kind === 'leaf' ? (
           <LeafNodeEditor
-            error={selectedFieldError}
+            error={selectedError || undefined}
             getDraftValue={getDraftValue}
             node={selectedNode}
             onBetaModeChange={handleBetaModeChange}
@@ -1663,7 +2181,7 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
         ) : (
           <>
             <CompositeNodeEditor
-              error={selectedFieldError}
+              error={selectedError || undefined}
               getDraftValue={getDraftValue}
               node={selectedNode}
               onFieldChange={handleCompositeFieldChange}
@@ -1679,14 +2197,13 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {validChildTypes(selectedNode).map((option) => (
                     <button
-                      aria-label={`Add ${option.label} to ${selectedNode.id}`}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1 text-xs text-fg transition hover:border-accent hover:text-accent"
+                      aria-label={`Add ${typeLabels[option.type]} to ${selectedNode.id}`}
+                      className="group relative inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1 text-xs text-fg transition hover:border-accent hover:text-accent"
                       key={option.type}
                       onClick={() => addTypedChild(selectedNode, option.type)}
                       type="button"
                     >
-                      <NodeTypeIcon type={option.type} />
-                      {option.label}
+                      <TypeLabelWithHelp type={option.type} />
                     </button>
                   ))}
                 </div>
@@ -1696,9 +2213,28 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
         )}
 
         {!validation.valid ? (
-          <div className="rounded-md border border-warn/40 bg-warn-soft p-3 text-sm text-warn-soft-fg">
-            The tree isn’t valid yet — look for the ⚠ markers in the structure pane and fix the
-            wiring before saving.
+          <div className="space-y-2 rounded-md border border-warn/40 bg-warn-soft p-3 text-sm text-warn-soft-fg">
+            <p className="font-medium">Fix these tree issues before saving:</p>
+            <ul className="space-y-1">
+              {validationIssues.map((error) => (
+                <li key={`${error.path}:${error.message}`}>
+                  <button
+                    className="text-left underline decoration-warn-soft-fg/40 underline-offset-2 hover:decoration-warn-soft-fg"
+                    onClick={() => {
+                      if (error.nodeId) {
+                        setSelectedId(error.nodeId);
+                      }
+                    }}
+                    type="button"
+                  >
+                    {error.nodeLabel
+                      ? `${error.nodeLabel} (${formatNodeType(error.nodeType ?? selectedNode.type)}): `
+                      : ''}
+                    {error.message}
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
         ) : null}
       </div>
@@ -1712,10 +2248,10 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
       ? '3rem minmax(0,1fr)'
       : focusMode === 'tree'
         ? 'minmax(0,1fr) 3rem'
-        : 'minmax(0,20rem) minmax(0,1fr)';
+        : 'minmax(24rem,32rem) minmax(0,1fr)';
 
   return (
-    <section className="space-y-3">
+    <section className="flex min-h-[42rem] flex-1 flex-col space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4">
         <div className="min-w-0">
           <p className="text-xs font-medium tracking-wide text-muted uppercase">Live headline</p>
@@ -1763,7 +2299,7 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
 
           <button
             className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={!validation.valid || saveState.status === 'saving'}
+            disabled={saveState.status === 'saving'}
             onClick={handleSave}
             type="button"
           >
@@ -1777,7 +2313,10 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
       ) : null}
       {saveState.status === 'error' ? <p className="text-sm text-bad">{saveState.message}</p> : null}
 
-      <div className="grid min-h-[28rem] gap-3" style={{ gridTemplateColumns: gridColumns }}>
+      <div
+        className="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:[grid-template-columns:var(--editor-columns)]"
+        style={{ '--editor-columns': gridColumns } as CSSProperties}
+      >
         {treeCollapsed ? (
           <button
             aria-label="Expand tree"
@@ -1791,7 +2330,7 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
             </span>
           </button>
         ) : (
-          <div className="min-w-0 rounded-xl border border-line bg-surface">{treePane}</div>
+          <div className="min-h-0 min-w-0 rounded-xl border border-line bg-surface">{treePane}</div>
         )}
 
         {detailCollapsed ? (
@@ -1807,7 +2346,7 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
             </span>
           </button>
         ) : (
-          <div className="min-w-0 rounded-xl border border-line bg-surface">{detailPane}</div>
+          <div className="min-h-0 min-w-0 rounded-xl border border-line bg-surface">{detailPane}</div>
         )}
       </div>
     </section>

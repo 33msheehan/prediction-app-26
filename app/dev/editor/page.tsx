@@ -11,9 +11,9 @@ export default function DevEditorPage() {
   }
 
   return (
-    <main className="flex-1 px-6 py-10">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div>
+    <main className="flex flex-1 flex-col px-4 py-4 sm:px-6 lg:px-8">
+      <div className="flex min-h-[calc(100vh-7rem)] w-full flex-1 flex-col gap-4">
+        <div className="shrink-0">
           <p className="text-xs font-medium tracking-wide text-subtle uppercase">Dev harness</p>
           <h1 className="mt-2 text-2xl font-semibold text-fg">Editor (no auth / no DB)</h1>
         </div>
