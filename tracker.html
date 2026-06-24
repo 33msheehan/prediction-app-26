@@ -910,7 +910,7 @@ const phases = [
         "goal": "Make a new binary forecast.",
         "implementation": [
           "Form: title, description, (binary fixed for v1), cadence config (none / interval-days / specific-dates)",
-          "Persist the forecast row. <strong>(Superseded by T3.8:</strong> create no longer writes a <code>source:'initial'</code> version — the forecast is created with no current version and the user builds the tree from a blank canvas in the editor, where the first save persists version 1.)"
+          "Persist an initial empty-ish forecast + <code>source:'initial'</code> version"
         ],
         "acceptance": [
           "Submitting creates a forecast owned by the user and lands on its editor"
