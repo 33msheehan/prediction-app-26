@@ -368,7 +368,7 @@
 // scripts/generate-tracker.mjs. Re-run `npm run tracker:generate` to refresh,
 // or just `npm run build` (it runs as a prebuild step).
 // status: "todo" | "progress" | "done"
-const LAST_UPDATED = "2026-06-23";
+const LAST_UPDATED = "2026-06-24";
 
 const SUMMARY = {
   "where": "Phases 0, 1, and 2 are complete. Phase 3 is implemented end to end on PR #10 (T3.1-T3.7: create/list/editor, leaf + composite editing, debounced live headline, save-to-version). On top of that, T3.8 (a full editor UX redesign) is implemented and tested on <code>claude/t3.8-editor-redesign</code>: a master–detail editor with tree/split/node focus modes, a nested-container structure pane for building 2–3 level trees, a pinned live headline, and a design-system/dark-mode foundation fix. Lint, typecheck, the full unit suite (128 passed / 14 skipped), and production build are green; verified in-browser in light + dark.",
@@ -1479,8 +1479,8 @@ const phases = [
           "needed": false
         },
         "progress": {
-          "started": false,
-          "testsWritten": false,
+          "started": true,
+          "testsWritten": true,
           "humanVerified": false
         }
       },
