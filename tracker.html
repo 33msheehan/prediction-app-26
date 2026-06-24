@@ -368,13 +368,15 @@
 // scripts/generate-tracker.mjs. Re-run `npm run tracker:generate` to refresh,
 // or just `npm run build` (it runs as a prebuild step).
 // status: "todo" | "progress" | "done"
-const LAST_UPDATED = "2026-06-23";
+const LAST_UPDATED = "2026-06-24";
 
 const SUMMARY = {
-  "where": "Phases 0, 1, and 2 are complete. Phase 3 is implemented end to end on PR #10 (T3.1-T3.7: create/list/editor, leaf + composite editing, debounced live headline, save-to-version). On top of that, T3.8 (a full editor UX redesign) is implemented and tested on <code>claude/t3.8-editor-redesign</code>: a master–detail editor with tree/split/node focus modes, a nested-container structure pane for building 2–3 level trees, a pinned live headline, and a design-system/dark-mode foundation fix. Lint, typecheck, the full unit suite (128 passed / 14 skipped), and production build are green; verified in-browser in light + dark.",
+  "where": "Phases 0, 1, and 2 are complete. Phase 3 is implemented end to end on PR #10 (T3.1-T3.7: create/list/editor, leaf + composite editing, debounced live headline, save-to-version). On top of that, T3.8 (a full editor UX redesign) is implemented and tested on <code>claude/t3.8-editor-redesign</code>: a master–detail editor with tree/split/node focus modes, a nested-container structure pane for building 2–3 level trees, a pinned live headline, and a design-system/dark-mode foundation fix. Lint, typecheck, the full unit suite (128 passed / 14 skipped), and production build are green; verified in-browser in light + dark. On <code>claude/t4.1-t4.4-checkin-history</code> (PR open), Phase 4's T4.1 (version history wiring), T4.3 (cadence engine — found already built as part of T3.2), and T4.4 (check-in flow reusing the editor in a new <code>checkin</code> save mode) are done. The remaining Phase 4 tickets (T4.2 chart, T4.5 guardrails, T4.6 rationale display) each need a human product/visual judgment call per BUILD_PLAN.md and are left for the user.",
   "next": [
     "Open a PR for <code>claude/t3.8-editor-redesign</code> and have an independent agent review it alongside the existing PR #10 work.",
-    "Perform the human UX verification against the redesigned editor (the whole point of T3.8) before treating Phase 3 as fully closed."
+    "Perform the human UX verification against the redesigned editor (the whole point of T3.8) before treating Phase 3 as fully closed.",
+    "Review and merge <code>claude/t4.1-t4.4-checkin-history</code> (T4.1/T4.3/T4.4).",
+    "T4.2, T4.5, and T4.6 need the user's product/visual judgment calls noted in BUILD_PLAN.md before they can be built."
   ]
 };
 
@@ -908,7 +910,7 @@ const phases = [
         "goal": "Make a new binary forecast.",
         "implementation": [
           "Form: title, description, (binary fixed for v1), cadence config (none / interval-days / specific-dates)",
-          "Persist an initial empty-ish forecast + <code>source:'initial'</code> version"
+          "Persist the forecast row. <strong>(Superseded by T3.8:</strong> create no longer writes a <code>source:'initial'</code> version — the forecast is created with no current version and the user builds the tree from a blank canvas in the editor, where the first save persists version 1.)"
         ],
         "acceptance": [
           "Submitting creates a forecast owned by the user and lands on its editor"
@@ -1190,8 +1192,8 @@ const phases = [
           "needed": false
         },
         "progress": {
-          "started": false,
-          "testsWritten": false,
+          "started": true,
+          "testsWritten": true,
           "humanVerified": false
         }
       },
@@ -1249,8 +1251,8 @@ const phases = [
           "needed": false
         },
         "progress": {
-          "started": false,
-          "testsWritten": false,
+          "started": true,
+          "testsWritten": true,
           "humanVerified": false
         }
       },
@@ -1282,8 +1284,8 @@ const phases = [
           "needed": false
         },
         "progress": {
-          "started": false,
-          "testsWritten": false,
+          "started": true,
+          "testsWritten": true,
           "humanVerified": false
         }
       },
