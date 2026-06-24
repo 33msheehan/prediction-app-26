@@ -1,6 +1,7 @@
 'use client';
 
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   fitBetaFromMeanConcentration,
@@ -47,15 +48,21 @@ const HEADLINE_DEBOUNCE_MS = 250;
 
 type FocusMode = 'tree' | 'split' | 'node';
 
+type EditorMode = 'edit' | 'checkin';
+
 type TreeEditorShellProps = {
   forecastId: string;
   initialTree: Tree | null;
   initialTreeError?: string;
+  mode?: EditorMode;
+  cancelHref?: string;
 };
 
 type ForecastTreeEditorProps = {
   forecastId: string;
   initialTree: Tree;
+  mode: EditorMode;
+  cancelHref?: string;
 };
 
 type FieldErrors = Record<string, string>;
@@ -1213,7 +1220,13 @@ function buildStarterNode(
   return node;
 }
 
-export function TreeEditorShell({ forecastId, initialTree, initialTreeError }: TreeEditorShellProps) {
+export function TreeEditorShell({
+  forecastId,
+  initialTree,
+  initialTreeError,
+  mode = 'edit',
+  cancelHref,
+}: TreeEditorShellProps) {
   const [tree, setTree] = useState<Tree | null>(() =>
     initialTree ? repairDuplicateNodeIds(initialTree) : null,
   );
@@ -1236,10 +1249,17 @@ export function TreeEditorShell({ forecastId, initialTree, initialTreeError }: T
     );
   }
 
-  return <ForecastTreeEditor forecastId={forecastId} initialTree={tree} />;
+  return (
+    <ForecastTreeEditor
+      forecastId={forecastId}
+      initialTree={tree}
+      mode={mode}
+      cancelHref={cancelHref}
+    />
+  );
 }
 
-function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps) {
+function ForecastTreeEditor({ forecastId, initialTree, mode, cancelHref }: ForecastTreeEditorProps) {
   const router = useRouter();
   const [tree, setTree] = useState(initialTree);
   const [selectedId, setSelectedId] = useState(initialTree.root.id);
@@ -1258,19 +1278,38 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
   const nextIdRef = useRef(nextNodeIdSeed(initialTree));
 
   const storageKey = `forecast-editor:focus:${forecastId}`;
+  const collapsedStorageKey = `forecast-editor:collapsed:${forecastId}`;
 
   const validation = useMemo(() => validateTree(tree), [tree]);
 
   useEffect(() => {
+    // Hydrate the persisted focus preference and collapsed nodes once on mount.
+    // Done in an effect (not a lazy initializer) to avoid a server/client
+    // hydration mismatch, since localStorage is unavailable during SSR.
     const stored = window.localStorage.getItem(storageKey);
     if (stored === 'tree' || stored === 'split' || stored === 'node') {
-      // Hydrate the persisted focus preference once on mount. Done in an effect
-      // (not a lazy initializer) to avoid a server/client hydration mismatch,
-      // since localStorage is unavailable during SSR.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setFocusMode(stored);
     }
-  }, [storageKey]);
+
+    const storedCollapsed = window.localStorage.getItem(collapsedStorageKey);
+    if (storedCollapsed) {
+      try {
+        const parsed = JSON.parse(storedCollapsed) as unknown;
+        if (parsed && typeof parsed === 'object') {
+          const next: Record<string, boolean> = {};
+          for (const [id, value] of Object.entries(parsed as Record<string, unknown>)) {
+            if (value === true) {
+              next[id] = true;
+            }
+          }
+          setCollapsedIds(next);
+        }
+      } catch {
+        // Ignore malformed persisted state and start expanded.
+      }
+    }
+  }, [storageKey, collapsedStorageKey]);
 
   function changeFocusMode(mode: FocusMode) {
     setFocusMode(mode);
@@ -1284,7 +1323,10 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
 
     const timeout = window.setTimeout(() => {
       try {
-        const result = runForecast(tree, { seed: `editor:${forecastId}` });
+        // Use the same seed the server uses when persisting a version
+        // (appendVersion defaults seed to forecastId), so the live headline
+        // matches the value stored and shown on the dashboard after saving.
+        const result = runForecast(tree, { seed: forecastId });
         setHeadline({ status: 'ready', result });
         setHeadlinePending(false);
       } catch (error) {
@@ -1339,7 +1381,11 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
   }
 
   function toggleCollapsed(nodeId: string) {
-    setCollapsedIds((current) => ({ ...current, [nodeId]: !current[nodeId] }));
+    setCollapsedIds((current) => {
+      const next = { ...current, [nodeId]: !current[nodeId] };
+      window.localStorage.setItem(collapsedStorageKey, JSON.stringify(next));
+      return next;
+    });
   }
 
   function getDraftValue(nodeId: string, field: string, fallback: number | string) {
@@ -1446,6 +1492,14 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
 
   function handleDuplicate(node: TreeNode, parent: TreeNode | null) {
     if (parent === null) {
+      return;
+    }
+    // Fixed-arity parents (threshold / not) are full once they have their
+    // single child — duplicating into them would create invalid wiring.
+    if (!canAddChild(parent)) {
+      setBlockedMessage(
+        `Cannot duplicate here. ${formatNodeType(parent.type)} accepts only one child.`,
+      );
       return;
     }
     const clone = cloneSubtree(node);
@@ -1761,6 +1815,17 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
       return;
     }
 
+    // Invalid field edits live in fieldErrors/fieldDrafts without committing to
+    // `tree`. Block the save so we never silently persist the previous valid
+    // value while the UI is showing an invalid draft.
+    if (Object.keys(fieldErrors).length > 0) {
+      setSaveState({
+        status: 'error',
+        message: 'Some inputs are invalid. Fix the highlighted fields before saving.',
+      });
+      return;
+    }
+
     const currentValidation = validateTree(tree);
     if (!currentValidation.valid) {
       setSaveState({
@@ -1776,7 +1841,7 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
       const response = await fetch(`/api/forecasts/${forecastId}/versions`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ tree }),
+        body: JSON.stringify({ tree, source: mode === 'checkin' ? 'checkin' : 'edit' }),
       });
 
       const payload = await response.json();
@@ -1788,6 +1853,9 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
       }
 
       setSaveState({ status: 'saved', versionNo: payload.versionNo });
+      if (mode === 'checkin' && cancelHref) {
+        router.push(cancelHref);
+      }
       router.refresh();
     } catch (error) {
       setSaveState({
@@ -1991,14 +2059,16 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
             ) : null}
             {parent ? (
               <>
-                <button
-                  aria-label={nodeActionLabel('Duplicate', node)}
-                  className="flex h-6 w-6 items-center justify-center rounded text-subtle hover:bg-surface hover:text-fg"
-                  onClick={() => handleDuplicate(node, parent)}
-                  type="button"
-                >
-                  ⧉
-                </button>
+                {canAddChild(parent) ? (
+                  <button
+                    aria-label={nodeActionLabel('Duplicate', node)}
+                    className="flex h-6 w-6 items-center justify-center rounded text-subtle hover:bg-surface hover:text-fg"
+                    onClick={() => handleDuplicate(node, parent)}
+                    type="button"
+                  >
+                    ⧉
+                  </button>
+                ) : null}
                 <button
                   aria-label={nodeActionLabel('Move', { ...node, label: `${displayNodeLabel(node)} up` })}
                   className="flex h-6 w-6 items-center justify-center rounded text-subtle hover:bg-surface hover:text-fg disabled:opacity-30"
@@ -2158,11 +2228,9 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
           </label>
         </div>
 
-        {selectedNode.type ? (
-          <div className="rounded-lg border border-line bg-panel p-3">
-            <TypeHelpContent type={selectedNode.type} />
-          </div>
-        ) : null}
+        <div className="rounded-lg border border-line bg-panel p-3">
+          <TypeHelpContent type={selectedNode.type} />
+        </div>
 
         {blockedMessage ? (
           <div className="rounded-md border border-bad/40 bg-bad-soft p-3 text-sm text-bad-soft-fg">
@@ -2297,13 +2365,26 @@ function ForecastTreeEditor({ forecastId, initialTree }: ForecastTreeEditorProps
             ))}
           </div>
 
+          {mode === 'checkin' && cancelHref ? (
+            <Link
+              className="rounded-md border border-line px-4 py-2 text-sm font-medium text-muted hover:text-fg"
+              href={cancelHref}
+            >
+              Cancel
+            </Link>
+          ) : null}
+
           <button
             className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             disabled={saveState.status === 'saving'}
             onClick={handleSave}
             type="button"
           >
-            {saveState.status === 'saving' ? 'Saving…' : 'Save version'}
+            {saveState.status === 'saving'
+              ? 'Saving…'
+              : mode === 'checkin'
+                ? 'Save check-in'
+                : 'Save version'}
           </button>
         </div>
       </div>

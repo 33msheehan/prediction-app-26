@@ -48,7 +48,7 @@ describe('POST /api/forecasts/[id]/versions', () => {
     expect(appendVersion).not.toHaveBeenCalled();
   });
 
-  it('calls appendVersion with a server-forced edit source and returns the saved version', async () => {
+  it('defaults to an edit source when none is provided and returns the saved version', async () => {
     authMock.mockResolvedValue({ user: { id: 'user-1' } });
     appendVersionMock.mockResolvedValue({
       id: 'version-1',
@@ -64,7 +64,6 @@ describe('POST /api/forecasts/[id]/versions', () => {
         method: 'POST',
         body: JSON.stringify({
           tree: { root: { id: 'root' } },
-          source: 'checkin',
         }),
       }),
       { params: Promise.resolve({ id: 'forecast-1' }) },
@@ -81,6 +80,63 @@ describe('POST /api/forecasts/[id]/versions', () => {
       headlineP: 0.42,
       headlineSE: 0.01,
       trials: 10_000,
+    });
+  });
+
+  it('passes through a checkin source when the client requests one', async () => {
+    authMock.mockResolvedValue({ user: { id: 'user-1' } });
+    appendVersionMock.mockResolvedValue({
+      id: 'version-2',
+      versionNo: 4,
+      headlineP: 0.5,
+      headlineSE: 0.01,
+      trials: 10_000,
+      createdAt: new Date('2026-06-22T20:00:00.000Z'),
+    } as Awaited<ReturnType<typeof appendVersion>>);
+
+    const response = await POST(
+      new Request('http://localhost', {
+        method: 'POST',
+        body: JSON.stringify({
+          tree: { root: { id: 'root' } },
+          source: 'checkin',
+        }),
+      }),
+      { params: Promise.resolve({ id: 'forecast-1' }) },
+    );
+
+    expect(appendVersion).toHaveBeenCalledWith('user-1', 'forecast-1', {
+      tree: { root: { id: 'root' } },
+      source: 'checkin',
+    });
+    expect(response.status).toBe(200);
+  });
+
+  it('falls back to an edit source for any value other than checkin', async () => {
+    authMock.mockResolvedValue({ user: { id: 'user-1' } });
+    appendVersionMock.mockResolvedValue({
+      id: 'version-3',
+      versionNo: 5,
+      headlineP: 0.5,
+      headlineSE: 0.01,
+      trials: 10_000,
+      createdAt: new Date('2026-06-23T20:00:00.000Z'),
+    } as Awaited<ReturnType<typeof appendVersion>>);
+
+    await POST(
+      new Request('http://localhost', {
+        method: 'POST',
+        body: JSON.stringify({
+          tree: { root: { id: 'root' } },
+          source: 'initial',
+        }),
+      }),
+      { params: Promise.resolve({ id: 'forecast-1' }) },
+    );
+
+    expect(appendVersion).toHaveBeenCalledWith('user-1', 'forecast-1', {
+      tree: { root: { id: 'root' } },
+      source: 'edit',
     });
   });
 

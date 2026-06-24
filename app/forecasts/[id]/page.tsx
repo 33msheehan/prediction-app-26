@@ -1,9 +1,11 @@
+import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { TreeSchema } from '@/lib/engine/tree';
 import { getCurrentUser } from '@/lib/auth/session';
-import { getForecastWithCurrentVersion } from '@/lib/db/repository';
+import { getForecastWithCurrentVersion, listForecastVersions } from '@/lib/db/repository';
 import { DeleteForecastButton } from '@/components/DeleteForecastButton';
 import { TreeEditorShell } from '@/components/TreeEditorShell';
+import { VersionHistory } from '@/components/VersionHistory';
 
 export default async function ForecastPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -28,6 +30,8 @@ export default async function ForecastPage({ params }: { params: Promise<{ id: s
       ? 'The saved tree uses an older or invalid structure. Start a replacement tree here, or delete the forecast.'
       : undefined;
 
+  const versions = await listForecastVersions(user.id, forecast.id);
+
   return (
     <main className="flex flex-1 flex-col px-4 py-4 sm:px-6 lg:px-8">
       <div className="flex min-h-[calc(100vh-7rem)] w-full flex-1 flex-col gap-4">
@@ -43,7 +47,17 @@ export default async function ForecastPage({ params }: { params: Promise<{ id: s
             <span className="rounded-full bg-panel px-3 py-1 text-xs font-medium text-muted capitalize">
               {forecast.status}
             </span>
-            <DeleteForecastButton forecastId={forecast.id} />
+            <div className="flex items-center gap-3">
+              {forecast.currentVersionId ? (
+                <Link
+                  className="text-sm font-medium text-accent hover:opacity-80"
+                  href={`/forecasts/${forecast.id}/check-in`}
+                >
+                  Check in
+                </Link>
+              ) : null}
+              <DeleteForecastButton forecastId={forecast.id} />
+            </div>
           </div>
         </div>
 
@@ -52,6 +66,13 @@ export default async function ForecastPage({ params }: { params: Promise<{ id: s
           initialTree={initialTree}
           initialTreeError={initialTreeError}
         />
+
+        <div className="shrink-0">
+          <h2 className="text-sm font-medium text-fg">Version history</h2>
+          <div className="mt-3">
+            <VersionHistory versions={versions} />
+          </div>
+        </div>
       </div>
     </main>
   );

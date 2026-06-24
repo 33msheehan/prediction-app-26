@@ -160,6 +160,26 @@ export async function createForecastWithInitialVersion(userId: string, input: Cr
   });
 }
 
+export async function listForecastVersions(userId: string, forecastId: string) {
+  const forecast = await getForecast(userId, forecastId);
+  if (!forecast) throw new ForecastNotFoundError(forecastId);
+
+  return db
+    .select({
+      id: forecastVersions.id,
+      versionNo: forecastVersions.versionNo,
+      headlineP: forecastVersions.headlineP,
+      headlineSE: forecastVersions.headlineSE,
+      trials: forecastVersions.trials,
+      source: forecastVersions.source,
+      rationale: forecastVersions.rationale,
+      createdAt: forecastVersions.createdAt,
+    })
+    .from(forecastVersions)
+    .where(eq(forecastVersions.forecastId, forecastId))
+    .orderBy(forecastVersions.versionNo);
+}
+
 export async function appendVersion(userId: string, forecastId: string, input: AppendVersionInput) {
   const forecast = await getForecast(userId, forecastId);
   if (!forecast) throw new ForecastNotFoundError(forecastId);

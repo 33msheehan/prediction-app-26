@@ -25,6 +25,29 @@ describe('ForecastList', () => {
     );
     expect(screen.getByText('Due for review')).toBeInTheDocument();
     expect(screen.getByText('63%')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Check in now/ })).toHaveAttribute(
+      'href',
+      '/forecasts/forecast-1/check-in',
+    );
+  });
+
+  it('does not show a check-in link when the forecast is not due', () => {
+    render(
+      <ForecastList
+        forecasts={[
+          {
+            id: 'forecast-2',
+            title: 'Will it rain?',
+            description: null,
+            status: 'open',
+            headlineP: 0.4,
+            dueForReview: false,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.queryByRole('link', { name: /Check in now/ })).not.toBeInTheDocument();
   });
 
   it('renders an empty state when the user has no forecasts', () => {

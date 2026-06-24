@@ -19,10 +19,11 @@ export async function POST(
   const { id } = await context.params;
 
   try {
-    const body = (await request.json()) as { tree?: unknown };
+    const body = (await request.json()) as { tree?: unknown; source?: unknown };
+    const source = body.source === 'checkin' ? 'checkin' : 'edit';
     const version = await appendVersion(session.user.id, id, {
       tree: body.tree,
-      source: 'edit',
+      source,
     });
 
     return NextResponse.json({

@@ -9,6 +9,7 @@ import {
   getForecastWithCurrentVersion,
   listForecasts,
   listForecastSummaries,
+  listForecastVersions,
   resolveForecast,
   TreeValidationFailedError,
 } from './repository';
@@ -183,5 +184,46 @@ describe.skipIf(skip)('forecast repository', () => {
     });
     expect(resolved.status).toBe('resolved');
     expect(resolved.resolvedOutcome).toBe(true);
+  });
+
+  it('listForecastVersions returns versions in ascending order with headline, source, and rationale', async () => {
+    const owner = await createTestUser('t4.1');
+    createdUserIds.push(owner.id);
+
+    const { forecast } = await createForecastWithInitialVersion(owner.id, {
+      title: 'Versioned forecast',
+      cadence: { kind: 'none' },
+    });
+
+    await appendVersion(owner.id, forecast.id, {
+      tree: validTree,
+      source: 'checkin',
+      rationale: 'New evidence came in',
+    });
+
+    const versions = await listForecastVersions(owner.id, forecast.id);
+
+    expect(versions).toHaveLength(2);
+    expect(versions.map((v) => v.versionNo)).toEqual([1, 2]);
+    expect(versions[0]?.source).toBe('initial');
+    expect(versions[1]?.source).toBe('checkin');
+    expect(versions[1]?.rationale).toBe('New evidence came in');
+    expect(versions[1]?.headlineP).toBeGreaterThanOrEqual(0);
+    expect(versions[1]?.createdAt).toBeTruthy();
+  });
+
+  it("listForecastVersions rejects another user's forecast (no cross-user leakage)", async () => {
+    const owner = await createTestUser('t4.1');
+    const other = await createTestUser('t4.1');
+    createdUserIds.push(owner.id, other.id);
+
+    const { forecast } = await createForecastWithInitialVersion(owner.id, {
+      title: 'Owner-only versions',
+      cadence: { kind: 'none' },
+    });
+
+    await expect(listForecastVersions(other.id, forecast.id)).rejects.toThrow(
+      ForecastNotFoundError,
+    );
   });
 });
